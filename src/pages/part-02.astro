@@ -1,0 +1,20 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+import { renderSpecFile } from '../lib/spec';
+
+const spec = renderSpecFile('spec/02-btc-authorization-domain-and-spv.md');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="part-02"
+  title={spec.title}
+  description="Part 2: Bitcoin Authorization Domain (d_btc_asset) & panic-free Go SPV verifier — 17 input tags, streaming SHA-256, multi-generation TrackedVaultRecord, SMT absence/inclusion halting, and 29 conformance vectors."
+  pathSlug="part-02/"
+  rawPath="raw/spec/02-btc-authorization-domain-and-spv.md"
+  toc={spec.toc}
+  prev={{ label: 'Part 1: Bitcoin Taproot Vault Enforcement', href: `${base}part-01/` }}
+  next={{ label: 'Part 3: Settlement Contract, zBTC & Peg-Free Rails', href: `${base}part-03/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

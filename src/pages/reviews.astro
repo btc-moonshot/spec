@@ -1,0 +1,194 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+const toc = [
+  { id: 'convergence', label: 'Convergence Across 6 Hostile Rounds', level: 2 as const },
+  { id: 'r6-resolutions', label: 'Round 6 Findings Closed in v2.5.0-rfc', level: 2 as const },
+  { id: 'raw-reports', label: 'Full Unedited Review Reports (R1–R6)', level: 2 as const },
+  { id: 'open-gates', label: 'Explicitly Remaining Non-Blocking Gates', level: 2 as const },
+];
+---
+
+<SpecShell
+  activeKey="reviews"
+  title="Adversarial Review Audit Trail (Rounds 1–6)"
+  description="Complete transparent record of 6 hostile peer-review rounds on the zBTC specification, showing convergence from 12 CRITICAL / 12 HIGH down to 0 CRITICAL and full Round-6 closure in v2.5.0-rfc."
+  pathSlug="reviews/"
+  rawPath="raw/reviews/HOSTILE_REVIEW_R6.md"
+  dek="Every version of this specification was subjected to first-principles adversarial audit before public RFC release. All 6 full reports are published unedited below."
+  toc={toc}
+  prev={{ label: 'Executable Bounds Oracle', href: `${base}oracle/` }}
+  next={{ label: 'How to Review, File Issues & Open PRs', href: `${base}review-guide/` }}
+>
+  <h2 id="convergence">Convergence Across 6 Hostile Rounds</h2>
+  <p>
+    Before opening this specification to public review, six iterative adversarial review passes (conducted by Claude
+    Opus 5.5 High against Bitcoin BIP-340/341/342 rules, BitVM W-OTS mechanics, and real <code>go-zenon</code> source
+    commits <code>f19955f</code> / <code>770e893</code>) hunted for fund-loss, slashing-bypass, state-desync, and
+    arithmetic bugs:
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Round</th>
+          <th>Spec Version</th>
+          <th>Verdict</th>
+          <th style="text-align:right">Critical</th>
+          <th style="text-align:right">High</th>
+          <th style="text-align:right">Medium</th>
+          <th style="text-align:right">Low</th>
+          <th style="text-align:right">Oracle</th>
+          <th>Report</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>R1</strong></td>
+          <td><code>v1.0</code></td>
+          <td><code>REJECT</code></td>
+          <td style="text-align:right">12</td>
+          <td style="text-align:right">12</td>
+          <td style="text-align:right">15</td>
+          <td style="text-align:right">10</td>
+          <td style="text-align:right">—</td>
+          <td><a href={`${base}raw/reviews/HOSTILE_REVIEW_R1.md`}>R1.md</a></td>
+        </tr>
+        <tr>
+          <td><strong>R2</strong></td>
+          <td><code>v2.0</code></td>
+          <td><code>HOLD</code></td>
+          <td style="text-align:right">4</td>
+          <td style="text-align:right">8</td>
+          <td style="text-align:right">12</td>
+          <td style="text-align:right">8</td>
+          <td style="text-align:right">10</td>
+          <td><a href={`${base}raw/reviews/HOSTILE_REVIEW_R2.md`}>R2.md</a></td>
+        </tr>
+        <tr>
+          <td><strong>R3</strong></td>
+          <td><code>v2.1</code></td>
+          <td><code>HOLD</code></td>
+          <td style="text-align:right">3</td>
+          <td style="text-align:right">4</td>
+          <td style="text-align:right">9</td>
+          <td style="text-align:right">11</td>
+          <td style="text-align:right">8</td>
+          <td><a href={`${base}raw/reviews/HOSTILE_REVIEW_R3.md`}>R3.md</a></td>
+        </tr>
+        <tr>
+          <td><strong>R4</strong></td>
+          <td><code>v2.2</code></td>
+          <td><code>HOLD</code></td>
+          <td style="text-align:right"><strong>0</strong></td>
+          <td style="text-align:right">3</td>
+          <td style="text-align:right">7</td>
+          <td style="text-align:right">12</td>
+          <td style="text-align:right">7</td>
+          <td><a href={`${base}raw/reviews/HOSTILE_REVIEW_R4.md`}>R4.md</a></td>
+        </tr>
+        <tr>
+          <td><strong>R5</strong></td>
+          <td><code>v2.3</code></td>
+          <td><code>HOLD</code></td>
+          <td style="text-align:right"><strong>0</strong></td>
+          <td style="text-align:right">3</td>
+          <td style="text-align:right">4</td>
+          <td style="text-align:right">9</td>
+          <td style="text-align:right">6</td>
+          <td><a href={`${base}raw/reviews/HOSTILE_REVIEW_R5.md`}>R5.md</a></td>
+        </tr>
+        <tr>
+          <td><strong>R6</strong></td>
+          <td><code>v2.4.0-draft</code></td>
+          <td><code>HOLD</code></td>
+          <td style="text-align:right"><strong>0</strong></td>
+          <td style="text-align:right">2</td>
+          <td style="text-align:right">5</td>
+          <td style="text-align:right">9</td>
+          <td style="text-align:right">6</td>
+          <td><a href={`${base}raw/reviews/HOSTILE_REVIEW_R6.md`}>R6.md</a></td>
+        </tr>
+        <tr>
+          <td><strong>Public RFC</strong></td>
+          <td><strong><code>v2.5.0-rfc</code></strong></td>
+          <td><strong>Open for Public Review</strong></td>
+          <td style="text-align:right" colspan="5">All R6-H1..H2, R6-M1..M5, R6-L1..L9 &amp; S6-1..S6-6 closed in current spec</td>
+          <td><a href={`${base}`}>SPEC.md</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="r6-resolutions">Round 6 Findings Closed in <code>v2.5.0-rfc</code></h2>
+  <ul>
+    <li>
+      <strong>R6-H1 (Slashing Predicate Bypass):</strong> <code>SubmitInvalidCertProof(cert)</code> now verifies the
+      BLS12-381 aggregate signature under the <strong>historical Tag-15 committee matching
+      <code>cert.FinalityCommitteeRoot</code></strong> (rather than <code>canonicalSigningCommitteeRoot(cert.Height)</code>),
+      then evaluates all 7 certificate fields against canonical state. <code>CarryOverCertificate</code> is deleted,
+      and the handoff pin is honestly specified as economically enforced via Zenon slashing rather than an in-circuit
+      oracle.
+    </li>
+    <li>
+      <strong>R6-H2 &amp; R6-M1 (Leaf-3B W-OTS Granularity &amp; Fixed 408 B Encoding):</strong> Certificate DA is now
+      encoded as a fixed 408 B two-slot payload (<code>targetCert || handoffSlot</code>, zero-padded to 204 zero bytes
+      for 1-cert epochs) committed as <strong>7 independent per-block checksummed <code>OP_HASH160</code> W-OTS
+      messages</strong> + 6 midstates (<code>1,239</code> digits, <code>29,882 vB &rarr; 30 kvB</code>, Leaf-3B peak
+      <code>265</code> digits = <code>530</code> witness elements leaving <code>470</code> free under 1,000,
+      <code>C = 1,208</code>).
+    </li>
+    <li>
+      <strong>R6-M2 (Latency-Aware Reachability &amp; Reservations):</strong> <code>RequestPegOut</code>,
+      <code>ClaimFrontingSlot</code>, and <code>MINTED_LOCK_V1</code> evaluate <code>ReachableRounds</code> at
+      <code>now + 3.0d</code>, reserve lane rounds per active slot, and permit <code>0x0D</code> re-graphing on
+      un-claimed <code>RELEASED</code> vaults.
+    </li>
+    <li>
+      <strong>R6-M3 (Decoupled Release Proof):</strong> <code>BTC_RELEASE_PROOF</code> always admits valid fronting
+      payments even if another operator's substitution trapped the assigned vault, paired with permissionless
+      <code>RepointTrappedPegOut</code>.
+    </li>
+    <li>
+      <strong>R6-M4 &amp; R6-M5 (Single-Authority Anti-Censorship Fronting Slots):</strong> Settlement and domain agree
+      on both Zenon time and Bitcoin height expiry; <code>MINTED_RELEASE_V1</code> keys strictly on the domain winner;
+      slots lock a forfeitable <code>500 ZNN</code> <code>SlotBondZnn</code> and bar consecutive re-claim by
+      <code>lastLapsedOperatorId</code>.
+    </li>
+    <li>
+      <strong>R6-L1..L9 &amp; S6-1..S6-6:</strong> Aligned <code>OP_HASH160</code> across prose &amp; oracle, added
+      strict duplicate/3rd-epoch rejection in <code>0x0D</code>, exact <code>unrotatedVaultCount</code> inc/dec via
+      <code>quarantineReason</code>, <code>+60h</code> finalization grace before quarantine, published Take-txid leaf
+      DA + raw-sweep halting across <code>ACTIVE</code>/<code>RELEASED</code>/<code>QUARANTINED</code>, exact
+      <code>anchorExpiryTs == finalityEpochStartTs(epoch) + 58d</code> equality, distinct IETF BLS POP DSTs + depth-5
+      SHA-256 committee tree + inner STARK / outer Groth16 split, <code>ResetFailedReimbursementSlot</code> +
+      <code>1.476x</code>/<code>1.591x</code> slow-block tolerance disclosures, and 180-day timeline simulation in
+      <code>scripts/verify_spec_bounds.py</code>.
+    </li>
+  </ul>
+
+  <h2 id="raw-reports">Full Unedited Review Reports (R1–R6)</h2>
+  <ul>
+    <li><a href={`${base}raw/reviews/HOSTILE_REVIEW_R1.md`}>HOSTILE_REVIEW_R1.md</a> — Initial v1.0 review (12 C / 12 H)</li>
+    <li><a href={`${base}raw/reviews/HOSTILE_REVIEW_R2.md`}>HOSTILE_REVIEW_R2.md</a> — v2.0 redesign review (4 C / 8 H)</li>
+    <li><a href={`${base}raw/reviews/HOSTILE_REVIEW_R3.md`}>HOSTILE_REVIEW_R3.md</a> — v2.1 Zenon closure &amp; BitVM2 connector audit (3 C / 4 H)</li>
+    <li><a href={`${base}raw/reviews/HOSTILE_REVIEW_R4.md`}>HOSTILE_REVIEW_R4.md</a> — v2.2 zero-critical milestone (0 C / 3 H)</li>
+    <li><a href={`${base}raw/reviews/HOSTILE_REVIEW_R5.md`}>HOSTILE_REVIEW_R5.md</a> — v2.3 closed-lifecycle audit (0 C / 3 H)</li>
+    <li><a href={`${base}raw/reviews/HOSTILE_REVIEW_R6.md`}>HOSTILE_REVIEW_R6.md</a> — v2.4.0-draft audit (0 C / 2 H; all resolved in v2.5.0-rfc)</li>
+  </ul>
+
+  <h2 id="open-gates">Explicitly Remaining Non-Blocking Gates</h2>
+  <p>
+    Design-spec sign-off does <strong>not</strong> authorize mainnet deployment. Implementation remains strictly gated
+    on: <strong>G-1</strong> (Signet 1p1c package relay &amp; full BitVM2 tx build), <strong>G-2</strong> (empirical
+    measurement of Groth16/SHA-256 chunk weights &le; 380 kWU, peak stack &le; 1,000, GPU prover time &le; 15 min),
+    <strong>G-9</strong> (depth-256 Multi-Tx challenge fuzzer), <strong>G-11</strong> (<code>IssueMinted &rarr;
+    ReceiveTreasury</code> unit tests), <strong>G-18</strong> (Signet&harr;Zenon PTLC/HTLC adversarial swap suite),
+    the public Groth16 Phase-2 CRS ceremony (<code>K &ge; 50</code>), and upstream ratification of
+    <code>SPEC.md §6</code> (<code>A-SPEC-1..6</code>, <code>A-BTC-1</code>, <code>A-MINT-1</code>,
+    <code>A-PILLAR-1</code>).
+  </p>
+</SpecShell>

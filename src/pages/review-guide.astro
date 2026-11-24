@@ -1,0 +1,44 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+import { renderSpecFile } from '../lib/spec';
+
+const contributing = renderSpecFile('CONTRIBUTING.md');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const REPO = 'https://github.com/btc-moonshot/spec';
+
+const toc = [
+  { id: 'for-llms', label: 'Quickstart for LLMs & AI Agents', level: 2 as const },
+  ...contributing.toc,
+];
+---
+
+<SpecShell
+  activeKey="review-guide"
+  title="Review Guide: Issues, Pull Requests & AI Agents"
+  description="How human engineers and autonomous LLM agents can ingest, verify, adversarially audit, file GitHub Issues, and submit Pull Requests to adjust the zBTC specification."
+  pathSlug="review-guide/"
+  rawPath="llms.txt"
+  dek="Structured review protocol, severity taxonomy, oracle CI checks, and machine-readable entrypoints for both humans and LLMs."
+  toc={toc}
+  prev={{ label: 'Adversarial Review Trail (R1–R6)', href: `${base}reviews/` }}
+>
+  <h2 id="for-llms">Quickstart for LLMs &amp; AI Agents</h2>
+  <p>Point any coding or reasoning agent directly at these machine-readable URLs:</p>
+  <pre><code># Structured manifest + adversarial review &amp; PR instructions:
+curl -sL https://btc-moonshot.github.io/spec/llms.txt
+
+# Single-fetch complete spec + oracle + verified stdout:
+curl -sL https://btc-moonshot.github.io/spec/llms-full.txt
+
+# Clone &amp; run the executable integer-satoshi bounds oracle:
+git clone https://github.com/btc-moonshot/spec.git
+cd spec &amp;&amp; python3 -I scripts/verify_spec_bounds.py</code></pre>
+  <p>
+    Direct submission links:
+    <a href={`${REPO}/issues/new?template=adversarial-finding.yml`} target="_blank" rel="noopener noreferrer">Report an Adversarial Finding</a> ·
+    <a href={`${REPO}/issues/new?template=spec-change-proposal.yml`} target="_blank" rel="noopener noreferrer">Propose a Spec Adjustment (RFC)</a> ·
+    <a href={`${REPO}/pulls`} target="_blank" rel="noopener noreferrer">Open a Pull Request</a>.
+  </p>
+
+  <div class="spec-body" set:html={contributing.html} />
+</SpecShell>

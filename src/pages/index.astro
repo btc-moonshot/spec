@@ -1,0 +1,21 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+import { renderSpecFile } from '../lib/spec';
+
+const spec = renderSpecFile('SPEC.md');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="index"
+  title={spec.title}
+  pageTitle="zBTC: Bitcoin–Zenon Interoperability Protocol Specification (v2.5.0-rfc)"
+  description="Public RFC specification for BitVM2 Taproot vaults, adversarially-bounded Bitcoin SPV, feeless block-lattice zBTC settlement, 30-day BLS12-381 finality anchoring, and peg-free PTLC/LN rails."
+  pathSlug=""
+  rawPath="raw/SPEC.md"
+  dek="Normative master specification, 5-assumption honest threat model, upstream amendments, and executable verification gates. Agent-ready via /llms.txt and /llms-full.txt."
+  toc={spec.toc}
+  next={{ label: 'Part 1: Bitcoin Taproot Vault Enforcement', href: `${base}part-01/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

@@ -1,0 +1,50 @@
+name: Adversarial Security / Spec Finding
+description: Report a cryptographic, BitVM2, consensus, SPV, state-machine, economic, or oracle defect in the zBTC specification.
+title: "[SEVERITY] "
+labels: ["adversarial-finding", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for auditing the zBTC Protocol Specification (`v2.5.0-rfc`). Both human researchers and AI review agents are encouraged to use this form.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - CRITICAL (loss of funds / unbacked mint / permanent lock)
+        - HIGH (broken core security property / unbuildable mechanism / slashing bypass)
+        - MEDIUM (edge-case liveness, griefing, or honest-operator stranding)
+        - LOW (erratum, numeric slip, missing DST or detail)
+        - ORACLE (bug or prose mismatch in scripts/verify_spec_bounds.py)
+    validations:
+      required: true
+  - type: input
+    id: citations
+    attributes:
+      label: Exact Spec Citations
+      description: File paths, sections, and line numbers (e.g., spec/01-bitcoin-taproot-vault-enforcement.md §3.4, scripts/verify_spec_bounds.py:245).
+      placeholder: "spec/01 §2, spec/04 §3.3"
+    validations:
+      required: true
+  - type: textarea
+    id: trace
+    attributes:
+      label: Concrete Attack Trace or Reproduction
+      description: Step-by-step transaction/call sequence, state transition trace, or minimal Python snippet demonstrating the violated invariant.
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Minimal Proposed Fix
+      description: Suggested normative wording or parameter/oracle adjustment.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Reviewer Checks
+      options:
+        - label: I checked that this is not already listed as an explicit Tier 1A assumption in SPEC.md §4 or an ASSUMED_STAGE_0C_TARGET gate in SPEC.md §7.
+        - label: If numeric, I ran `python3 -I scripts/verify_spec_bounds.py` to confirm.

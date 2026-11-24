@@ -1,0 +1,20 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+import { renderSpecFile } from '../lib/spec';
+
+const spec = renderSpecFile('spec/03-settlement-minted-zbtc-and-feeless-rails.md');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="part-03"
+  title={spec.title}
+  description="Part 3: Atomic Treasury Pre-Mint SettlementContract, BatchCommitmentV3, Multi-Tx depth-256 challenge sessions, latency-aware G-21 capacity, aligned cross-store vault state machine, Plasma, and BIP-327 PTLC / LN HTLC swaps."
+  pathSlug="part-03/"
+  rawPath="raw/spec/03-settlement-minted-zbtc-and-feeless-rails.md"
+  toc={spec.toc}
+  prev={{ label: 'Part 2: Bitcoin Authorization Domain & SPV', href: `${base}part-02/` }}
+  next={{ label: 'Part 4: Bitcoin Anchoring & Light Client', href: `${base}part-04/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

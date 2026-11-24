@@ -1,0 +1,20 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+import { renderSpecFile } from '../lib/spec';
+
+const spec = renderSpecFile('spec/05-go-zenon-upgrade-plan.md');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="part-05"
+  title={spec.title}
+  description="Part 5: Phased go-zenon node upgrade blueprint (U0–U5) verified against origin/dev 770e893 and release/0.0.11-rc1 f19955f, including TokenContract.IssueMinted, BLS12-381 finality slashing, and Governance decentralization."
+  pathSlug="part-05/"
+  rawPath="raw/spec/05-go-zenon-upgrade-plan.md"
+  toc={spec.toc}
+  prev={{ label: 'Part 4: Bitcoin Anchoring & Light Client', href: `${base}part-04/` }}
+  next={{ label: 'Executable Bounds Oracle', href: `${base}oracle/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

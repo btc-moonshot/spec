@@ -1,0 +1,221 @@
+/* Retro / cypherpunk / plain text. Exact visual sibling of btc-moonshot/bigidea.
+   System monospace only, no webfonts, no frills. */
+
+:root {
+  --font: ui-monospace, 'SF Mono', 'JetBrains Mono', 'IBM Plex Mono', Menlo, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  --font-sans: var(--font);
+
+  --measure: 760px;
+
+  /* light: paper + ink */
+  --bg: #f3f0e6;
+  --surface: #f3f0e6;
+  --band: #ebe7da;
+  --text: #141414;
+  --muted: #55524a;
+  --rule: #c9c4b4;
+  --rule-strong: #8f8a7c;
+  --link: #141414;
+  --accent: #b85c00;
+  --accent-text: #9a4a00;
+  --accent-tint: #f3e3cc;
+  --selection: #141414;
+  --selection-text: #f3f0e6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    /* dark: amber terminal */
+    --bg: #0a0a0a;
+    --surface: #0a0a0a;
+    --band: #121212;
+    --text: #d9d6cc;
+    --muted: #8c887d;
+    --rule: #2a2a2a;
+    --rule-strong: #4d4a44;
+    --link: #d9d6cc;
+    --accent: #f7931a;
+    --accent-text: #f7a23c;
+    --accent-tint: #1d1408;
+    --selection: #f7931a;
+    --selection-text: #0a0a0a;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0a0a0a;
+  --surface: #0a0a0a;
+  --band: #121212;
+  --text: #d9d6cc;
+  --muted: #8c887d;
+  --rule: #2a2a2a;
+  --rule-strong: #4d4a44;
+  --link: #d9d6cc;
+  --accent: #f7931a;
+  --accent-text: #f7a23c;
+  --accent-tint: #1d1408;
+  --selection: #f7931a;
+  --selection-text: #0a0a0a;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 3.5rem;
+}
+@media (min-width: 1160px) {
+  html {
+    scroll-padding-top: 1.5rem;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 560px) {
+  body {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--selection-text);
+}
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+a:hover {
+  color: var(--bg);
+  background: var(--accent);
+  text-decoration: none;
+}
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font);
+  line-height: 1.25;
+}
+
+strong {
+  font-weight: 700;
+}
+
+hr {
+  border: 0;
+  border-top: 1px dashed var(--rule-strong);
+  margin: 2rem 0;
+}
+
+code {
+  font-family: var(--font);
+  font-size: 0.9em;
+  background: var(--band);
+  padding: 0.08rem 0.3rem;
+  border: 1px solid var(--rule);
+}
+
+pre {
+  margin: 1.25rem 0;
+  padding: 0.95rem 1.05rem;
+  background: var(--band);
+  border: 1px solid var(--rule-strong);
+  overflow-x: auto;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+blockquote {
+  margin: 1.35rem 0;
+  padding: 0.85rem 1.05rem;
+  border: 1px solid var(--accent);
+  background: var(--accent-tint);
+}
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.25rem 0 1.5rem;
+  border: 1px solid var(--rule-strong);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  line-height: 1.48;
+  min-width: 540px;
+}
+
+thead th {
+  text-align: left;
+  background: var(--band);
+  color: var(--accent-text);
+  font-weight: 700;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--rule-strong);
+  vertical-align: top;
+}
+
+tbody td {
+  padding: 0.55rem 0.7rem;
+  border-top: 1px dashed var(--rule);
+  vertical-align: top;
+}
+
+tbody tr:hover {
+  background: var(--band);
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0.5rem;
+  z-index: 10;
+  padding: 0.3rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--text);
+}
+.skip-link:focus {
+  left: 1rem;
+}

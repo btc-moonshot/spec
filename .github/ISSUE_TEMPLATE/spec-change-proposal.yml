@@ -1,0 +1,26 @@
+name: Spec Change Proposal (RFC)
+description: Propose a design improvement, parameter adjustment, or clarification to the zBTC specification.
+title: "[RFC] "
+labels: ["rfc", "enhancement"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation & Problem Statement
+      description: What problem or opportunity does this change address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Specification Change
+      description: Which files/sections change, and what is the concrete new rule or parameter?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Security, Economic & Oracle Impact
+      description: Does this alter any trust assumption in SPEC.md §4, upstream amendment in §6, or assertion in scripts/verify_spec_bounds.py?
+    validations:
+      required: true

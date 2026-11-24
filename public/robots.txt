@@ -1,0 +1,10 @@
+# Welcome human search engines, research indexers, and AI / LLM agents.
+# Full machine-readable manifest & review instructions:
+# https://btc-moonshot.github.io/spec/llms.txt
+# Single-fetch complete specification bundle:
+# https://btc-moonshot.github.io/spec/llms-full.txt
+
+User-agent: *
+Allow: /
+
+Sitemap: https://btc-moonshot.github.io/spec/sitemap.xml

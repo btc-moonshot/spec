@@ -1,0 +1,20 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+import { renderSpecFile } from '../lib/spec';
+
+const spec = renderSpecFile('spec/04-bitcoin-anchoring-and-light-client.md');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="part-04"
+  title={spec.title}
+  description="Part 4: Dual-bounded Bitcoin history anchoring, proof-format.md V1 SMT state proofs, 30-day BLS12-381 FinalityCommitteeRoot, historical-root full-preimage slashing, 72-day post-service lock, and anti-frontier boundary."
+  pathSlug="part-04/"
+  rawPath="raw/spec/04-bitcoin-anchoring-and-light-client.md"
+  toc={spec.toc}
+  prev={{ label: 'Part 3: Settlement Contract, zBTC & Peg-Free Rails', href: `${base}part-03/` }}
+  next={{ label: 'Part 5: Detailed go-zenon Node Upgrade Plan', href: `${base}part-05/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>
