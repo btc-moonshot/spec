@@ -1,0 +1,24 @@
+---
+import SpecShell from '../../components/SpecShell.astro';
+import { renderSpecFile } from '../../lib/spec';
+
+const rel = 'spec/03-settlement-minted-zbtc-and-feeless-rails.md';
+const spec = renderSpecFile(rel, 'v0');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="part-03"
+  version="v0"
+  title={spec.title}
+  pageTitle={`${spec.title} — Archived v0 (v2.5.0-rfc)`}
+  description="Archived v0 (v2.5.0-rfc) Part 3 snapshot frozen byte-for-byte from commit 7b47b8c. Superseded by v1 (v3.0.0-rfc)."
+  pathSlug="v0/part-03/"
+  canonicalSlug="part-03/"
+  rawPath={`raw/v0/${rel}`}
+  toc={spec.toc}
+  prev={{ label: 'Part 2 (v0): Bitcoin Authorization Domain & SPV', href: `${base}v0/part-02/` }}
+  next={{ label: 'Part 4 (v0): Bitcoin Anchoring & Light Client', href: `${base}v0/part-04/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

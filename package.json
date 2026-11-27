@@ -1,7 +1,7 @@
 {
   "name": "zbtc-spec",
   "type": "module",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "private": true,
   "description": "zBTC: Bitcoin-Zenon Interoperability Protocol Specification — public RFC, executable bounds oracle, and agent-ready review site.",
   "scripts": {

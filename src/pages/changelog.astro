@@ -1,0 +1,82 @@
+---
+import SpecShell from '../components/SpecShell.astro';
+import { buildV1ToV0Diff, renderSpecFile, TRACKED_SPEC_FILES } from '../lib/spec';
+
+const changelog = renderSpecFile('CHANGELOG.md', 'v1');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+const fileDiffs = TRACKED_SPEC_FILES.map((item) => {
+  const bundle = buildV1ToV0Diff(item.relPath);
+  return { ...item, ...bundle };
+});
+
+const totalAdded = fileDiffs.reduce((acc, f) => acc + f.diff.addedLines, 0);
+const totalRemoved = fileDiffs.reduce((acc, f) => acc + f.diff.removedLines, 0);
+
+const toc = [
+  ...changelog.toc,
+  { id: 'file-diffs', label: 'Per-File Diffs (v0 → v1)', level: 2 as const },
+];
+---
+
+<SpecShell
+  activeKey="changelog"
+  version="v1"
+  title={changelog.title}
+  pageTitle="Changelog & Version Diffs (v0 → v1) — zBTC Protocol Specification"
+  description="Complete finding-by-finding changelog and word-highlighted per-file diffs comparing archived v0 (v2.5.0-rfc) to v1 (v3.0.0-rfc)."
+  pathSlug="changelog/"
+  rawPath="raw/CHANGELOG.md"
+  dek={`Complete disposition of Consolidated Hostile Review R7 + N-1..N-6 + B1..B5, plus full word-level file diffs (+${totalAdded} / -${totalRemoved} lines across ${fileDiffs.length} tracked files).`}
+  toc={toc}
+  prev={{ label: 'Consistency & Bounds Checker', href: `${base}oracle/` }}
+  next={{ label: 'Adversarial Review Trail (R1–R7)', href: `${base}reviews/` }}
+>
+  <div class="spec-body" set:html={changelog.html} />
+
+  <h2 id="file-diffs">Per-File Diffs (<code>v0</code> &rarr; <code>v1</code>)</h2>
+  <p>
+    Compare archived <code>v0</code> (<a href={`${base}v0/`}><code>v2.5.0-rfc</code></a>, SHA-256 verified from
+    commit <code>7b47b8c</code>) against current <code>v1</code> (<code>v3.0.0-rfc</code>). You can also toggle
+    <strong>[show changes vs v0]</strong> directly in the header of any individual <code>v1</code> page.
+  </p>
+
+  <div class="changelog-diff-actions">
+    <button type="button" class="diff-toggle-btn" id="expand-all-diffs">[expand all diffs]</button>
+    <button type="button" class="diff-toggle-btn" id="collapse-all-diffs">[collapse all diffs]</button>
+  </div>
+
+  {fileDiffs.map((f) => (
+    <details class="file-diff-details" id={`diff-${f.key}`}>
+      <summary>
+        <span>
+          {f.label} · <code>{f.relPath}</code>
+        </span>
+        <span class="diff-counts">
+          <span class="dc-add">+{f.diff.addedLines}</span> / <span class="dc-del">-{f.diff.removedLines}</span> ·
+          <a href={`${base}${f.slug}?diff=1`} onclick="event.stopPropagation()">open on page</a>
+        </span>
+      </summary>
+      <div set:html={f.html} />
+    </details>
+  ))}
+</SpecShell>
+
+<script>
+  const allDetails = [...document.querySelectorAll('details.file-diff-details')] as HTMLDetailsElement[];
+  document.getElementById('expand-all-diffs')?.addEventListener('click', () => {
+    for (const d of allDetails) d.open = true;
+  });
+  document.getElementById('collapse-all-diffs')?.addEventListener('click', () => {
+    for (const d of allDetails) d.open = false;
+  });
+</script>
+
+<style>
+  .changelog-diff-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 0.75rem 0 1rem;
+  }
+</style>

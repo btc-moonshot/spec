@@ -1,0 +1,23 @@
+---
+import SpecShell from '../../components/SpecShell.astro';
+import { renderSpecFile } from '../../lib/spec';
+
+const spec = renderSpecFile('SPEC.md', 'v0');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="index"
+  version="v0"
+  title={spec.title}
+  pageTitle="zBTC Protocol Specification — Archived v0 (v2.5.0-rfc)"
+  description="Archived v0 (v2.5.0-rfc) snapshot of the zBTC specification frozen byte-for-byte from commit 7b47b8c. Superseded by v1 (v3.0.0-rfc)."
+  pathSlug="v0/"
+  canonicalSlug=""
+  rawPath="raw/v0/SPEC.md"
+  dek="Archived byte-for-byte v0 baseline (v2.5.0-rfc, commit 7b47b8c) — superseded by v1 (v3.0.0-rfc)."
+  toc={spec.toc}
+  next={{ label: 'Part 1 (v0): Bitcoin Taproot Vault Enforcement', href: `${base}v0/part-01/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

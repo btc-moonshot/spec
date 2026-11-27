@@ -1,20 +1,24 @@
 ---
 import SpecShell from '../components/SpecShell.astro';
-import { renderSpecFile } from '../lib/spec';
+import { buildV1ToV0Diff, renderSpecFile } from '../lib/spec';
 
-const spec = renderSpecFile('spec/01-bitcoin-taproot-vault-enforcement.md');
+const rel = 'spec/01-bitcoin-taproot-vault-enforcement.md';
+const spec = renderSpecFile(rel, 'v1');
+const diffBundle = buildV1ToV0Diff(rel);
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <SpecShell
   activeKey="part-01"
+  version="v1"
   title={spec.title}
-  description="Part 1 (BTC-ENFORCEMENT-V1): 4-key registry, per-block OP_HASH160 W-OTS BLS12-381 cert DA, Leaf-3B SHA-256 without OP_CAT, staggered 46d/56d/58d CLTVs, 30-day rotation, and integer-satoshi BitVM2 economics."
+  description="Part 1 (BTC-CUSTODY-F1): Taproot NUMS + OP_CHECKSIGADD HSM federation, 52,560-block recovery leaf, dual-implementation B3a/B3b signer policy, Proof-of-Reserves, Wind-Down loss model, and v2 BitVM Research Annex."
   pathSlug="part-01/"
-  rawPath="raw/spec/01-bitcoin-taproot-vault-enforcement.md"
+  rawPath={`raw/${rel}`}
   toc={spec.toc}
+  diffBundle={diffBundle}
   prev={{ label: 'Master Overview (SPEC.md)', href: `${base}` }}
-  next={{ label: 'Part 2: Bitcoin Authorization Domain & SPV', href: `${base}part-02/` }}
+  next={{ label: 'Part 2: Direct-on-L1 Trimmed Bitcoin SPV', href: `${base}part-02/` }}
 >
   <div class="spec-body" set:html={spec.html} />
 </SpecShell>

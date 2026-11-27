@@ -1,0 +1,24 @@
+---
+import SpecShell from '../../components/SpecShell.astro';
+import { renderSpecFile } from '../../lib/spec';
+
+const rel = 'spec/05-go-zenon-upgrade-plan.md';
+const spec = renderSpecFile(rel, 'v0');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="part-05"
+  version="v0"
+  title={spec.title}
+  pageTitle={`${spec.title} — Archived v0 (v2.5.0-rfc)`}
+  description="Archived v0 (v2.5.0-rfc) Part 5 snapshot frozen byte-for-byte from commit 7b47b8c. Superseded by v1 (v3.0.0-rfc)."
+  pathSlug="v0/part-05/"
+  canonicalSlug="part-05/"
+  rawPath={`raw/v0/${rel}`}
+  toc={spec.toc}
+  prev={{ label: 'Part 4 (v0): Bitcoin Anchoring & Light Client', href: `${base}v0/part-04/` }}
+  next={{ label: 'Bounds Oracle (v0)', href: `${base}v0/oracle/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

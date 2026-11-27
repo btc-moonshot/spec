@@ -1,0 +1,24 @@
+---
+import SpecShell from '../../components/SpecShell.astro';
+import { renderSpecFile } from '../../lib/spec';
+
+const rel = 'spec/02-btc-authorization-domain-and-spv.md';
+const spec = renderSpecFile(rel, 'v0');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<SpecShell
+  activeKey="part-02"
+  version="v0"
+  title={spec.title}
+  pageTitle={`${spec.title} — Archived v0 (v2.5.0-rfc)`}
+  description="Archived v0 (v2.5.0-rfc) Part 2 snapshot frozen byte-for-byte from commit 7b47b8c. Superseded by v1 (v3.0.0-rfc)."
+  pathSlug="v0/part-02/"
+  canonicalSlug="part-02/"
+  rawPath={`raw/v0/${rel}`}
+  toc={spec.toc}
+  prev={{ label: 'Part 1 (v0): Bitcoin Taproot Vault Enforcement', href: `${base}v0/part-01/` }}
+  next={{ label: 'Part 3 (v0): Settlement & Feeless Rails', href: `${base}v0/part-03/` }}
+>
+  <div class="spec-body" set:html={spec.html} />
+</SpecShell>

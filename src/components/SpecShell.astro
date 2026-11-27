@@ -1,29 +1,43 @@
 ---
 import Base from '../layouts/Base.astro';
-import { SPEC_NAV, type TocItem } from '../lib/spec';
+import {
+  getSpecNav,
+  VERSIONS,
+  VERSION_LIST,
+  versionSwitchUrl,
+  type SpecVersionId,
+  type TocItem,
+  type VersionDiffBundle,
+} from '../lib/spec';
 
 interface Props {
   activeKey: string;
+  version?: SpecVersionId;
   title: string;
   pageTitle?: string;
   description: string;
   pathSlug?: string;
+  canonicalSlug?: string;
   rawPath?: string;
   dek?: string;
   toc: TocItem[];
+  diffBundle?: VersionDiffBundle;
   prev?: { label: string; href: string };
   next?: { label: string; href: string };
 }
 
 const {
   activeKey,
+  version = 'v1',
   title,
   pageTitle = `${title} — zBTC Protocol Specification`,
   description,
   pathSlug = '',
+  canonicalSlug,
   rawPath = 'raw/SPEC.md',
   dek,
   toc,
+  diffBundle,
   prev,
   next,
 } = Astro.props;
@@ -32,13 +46,36 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const REPO = 'https://github.com/btc-moonshot/spec';
 const ISSUES = `${REPO}/issues/new/choose`;
 const PRS = `${REPO}/pulls`;
+
+const vMeta = VERSIONS[version];
+const navItems = getSpecNav(version);
+const isArchived = version === 'v0';
+const v1PeerHref = versionSwitchUrl(activeKey, 'v1');
 ---
 
-<Base title={pageTitle} description={description} pathSlug={pathSlug} rawPath={rawPath}>
+<Base
+  title={pageTitle}
+  description={description}
+  pathSlug={pathSlug}
+  canonicalSlug={canonicalSlug ?? (isArchived ? v1PeerHref.replace(base, '') : pathSlug)}
+  rawPath={rawPath}
+  versionLabel={vMeta.semver}
+  noindex={isArchived}
+>
   <div class="page">
     <header class="masthead">
-      <a class="kicker" href={base}>~/bitcoin-payments/spec</a>
+      <a class="kicker" href={vMeta.routePrefix}>~/bitcoin-payments/spec</a>
       <div class="masthead-right">
+        <label class="version-picker-wrap" aria-label="Specification version">
+          <span class="version-picker-label">ver:</span>
+          <select class="version-picker" id="version-picker" aria-label="Select specification version">
+            {VERSION_LIST.map((v) => (
+              <option value={versionSwitchUrl(activeKey, v.id)} selected={v.id === version}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <a class="meta-link" href={`${base}llms.txt`}>[llms.txt]</a>
         <a class="meta-link" href={REPO} target="_blank" rel="noopener noreferrer">[github]</a>
         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle color theme">
@@ -49,7 +86,7 @@ const PRS = `${REPO}/pulls`;
 
     <nav class="part-nav" aria-label="Specification modules">
       <div class="part-nav-inner">
-        {SPEC_NAV.map((item) => (
+        {navItems.map((item) => (
           <a href={item.href} class:list={['part-tab', { active: item.key === activeKey }]}>
             {item.label}
           </a>
@@ -72,9 +109,13 @@ const PRS = `${REPO}/pulls`;
             ))}
           </ol>
           <div class="toc-agent-box">
-            <p class="toc-box-title">// agent &amp; raw links</p>
+            <p class="toc-box-title">// agent, versions &amp; raw</p>
             <ul>
               <li><a href={`${base}${rawPath}`}>raw source ({rawPath.split('/').pop()})</a></li>
+              <li><a href={`${base}changelog/`}>changelog (v1 vs v0)</a></li>
+              <li><a href={isArchived ? v1PeerHref : versionSwitchUrl(activeKey, 'v0')}>
+                {isArchived ? 'view current v1' : 'view archived v0'}
+              </a></li>
               <li><a href={`${base}llms.txt`}>llms.txt (review guide)</a></li>
               <li><a href={`${base}llms-full.txt`}>llms-full.txt (1-fetch)</a></li>
               <li><a href={ISSUES} target="_blank" rel="noopener noreferrer">open finding / issue</a></li>
@@ -86,13 +127,67 @@ const PRS = `${REPO}/pulls`;
 
       <main class="article" id="article">
         <article>
+          {isArchived && (
+            <div class="archive-banner" role="note" aria-label="Archived version warning">
+              <p class="archive-banner-title">
+                [!] ARCHIVED VERSION: <strong>v0 ({vMeta.semver})</strong> — SUPERSEDED BY v1 (v3.0.0-rfc)
+              </p>
+              <p>
+                This page is frozen byte-for-byte from commit <code>7b47b8c</code> (SHA-256 verified) and is
+                <strong>not for implementation</strong>. Hostile review <code>R7</code> identified fatal blockers
+                in <code>v0</code> (<code>C-1..C-4</code>, <code>N-1..N-6</code>) that were resolved in <code>v1</code>.
+              </p>
+              <p class="archive-banner-links">
+                <a href={v1PeerHref}>[switch to v1]</a>
+                <a href={`${v1PeerHref}?diff=1`}>[show changes v1 vs v0]</a>
+                <a href={`${base}changelog/`}>[read changelog]</a>
+              </p>
+            </div>
+          )}
+
           <header class="article-header">
-            <p class="rfc-badge">v2.5.0-rfc · public review · oracle verified · not mainnet-active</p>
+            <div class="header-top-row">
+              <p class="rfc-badge">
+                {version} ({vMeta.semver}) · {isArchived ? 'archived baseline · superseded' : 'public rfc · tier f · not mainnet-active'}
+              </p>
+              {diffBundle && !isArchived && (
+                <div class="diff-controls">
+                  <button
+                    type="button"
+                    class="diff-toggle-btn"
+                    id="diff-toggle-btn"
+                    aria-pressed="false"
+                  >
+                    <span class="dt-show">[show changes vs v0]</span>
+                    <span class="dt-hide">[hide changes · back to spec]</span>
+                    <span class="dt-stats">
+                      <span class="dc-add">+{diffBundle.diff.addedLines}</span>/<span class="dc-del">-{diffBundle.diff.removedLines}</span>
+                    </span>
+                  </button>
+                  <a class="diff-changelog-link" href={`${base}changelog/`}>[changelog]</a>
+                </div>
+              )}
+            </div>
             <h1>{title}</h1>
             {dek && <p class="dek">{dek}</p>}
           </header>
 
-          <slot />
+          {diffBundle && !isArchived && (
+            <section class="diff-panel" id="diff-panel" hidden aria-label="Changes from v0 to v1">
+              <div class="diff-panel-intro">
+                <p>
+                  Showing word-highlighted line changes from archived <strong>v0 (v2.5.0-rfc)</strong> to
+                  <strong>v1 (v3.0.0-rfc)</strong>. For structured finding-by-finding rationale, see the
+                  <a href={`${base}changelog/`}>Changelog</a>.
+                </p>
+              </div>
+              <div set:html={diffBundle.html} />
+            </section>
+          )}
+
+          <div id="spec-content-wrap">
+            <slot />
+          </div>
 
           {(prev || next) && (
             <nav class="pager" aria-label="Chapter navigation">
@@ -104,15 +199,16 @@ const PRS = `${REPO}/pulls`;
           <section class="cta" aria-labelledby="review-cta">
             <h2 id="review-cta">Attack this spec &amp; submit feedback</h2>
             <p>
-              This is a <strong>Public RFC</strong> refined across 6 adversarial review rounds. Humans and AI review
-              agents are invited to verify <code>python3 -I scripts/verify_spec_bounds.py</code>, test invariants, file
-              findings, or open pull requests.
+              This is a <strong>Public RFC</strong> updated to <code>v1 (v3.0.0-rfc)</code> in response to
+              Consolidated Hostile Review <code>R7</code>. Humans and AI review agents are invited to run
+              <code>python3 -I scripts/verify_spec_bounds.py</code>, inspect the
+              <a href={`${base}changelog/`}>v0 &rarr; v1 changelog</a>, file findings, or open pull requests.
             </p>
             <div class="cta-actions">
               <a class="cta-button" href={ISSUES} target="_blank" rel="noopener noreferrer">Open an Issue</a>
+              <a class="cta-ghost" href={`${base}changelog/`}>Changelog &amp; Diffs</a>
               <a class="cta-ghost" href={`${base}review-guide/`}>Review &amp; PR Guide</a>
               <a class="cta-ghost" href={`${base}llms.txt`}>Read llms.txt</a>
-              <a class="cta-ghost" href={`${base}llms-full.txt`}>Fetch llms-full.txt</a>
             </div>
           </section>
         </article>
@@ -121,10 +217,11 @@ const PRS = `${REPO}/pulls`;
 
     <footer class="site-footer">
       <p>
-        zBTC Interoperability Specification (`v2.5.0-rfc`) ·
+        zBTC Interoperability Specification ({version} / {vMeta.semver}) ·
         <a href={REPO} target="_blank" rel="noopener noreferrer">github.com/btc-moonshot/spec</a> ·
+        <a href={`${base}changelog/`}>changelog</a> ·
         <a href={`${base}llms.txt`}>llms.txt</a> ·
-        <a href={`${base}oracle/`}>bounds oracle</a>
+        <a href={`${vMeta.routePrefix}oracle/`}>bounds checker</a>
       </p>
     </footer>
   </div>
@@ -148,6 +245,44 @@ const PRS = `${REPO}/pulls`;
       localStorage.setItem('theme', next);
     } catch {}
   });
+
+  // Version dropdown navigation
+  const versionPicker = document.getElementById('version-picker') as HTMLSelectElement | null;
+  versionPicker?.addEventListener('change', () => {
+    if (versionPicker.value) {
+      window.location.href = versionPicker.value;
+    }
+  });
+
+  // Inline v1 vs v0 diff toggle button (+ ?diff=1 URL support)
+  const diffBtn = document.getElementById('diff-toggle-btn') as HTMLButtonElement | null;
+  const diffPanel = document.getElementById('diff-panel') as HTMLElement | null;
+  const specWrap = document.getElementById('spec-content-wrap') as HTMLElement | null;
+
+  function setDiffOpen(open: boolean, updateUrl = true) {
+    if (!diffBtn || !diffPanel || !specWrap) return;
+    diffBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+    diffBtn.classList.toggle('active', open);
+    diffPanel.hidden = !open;
+    specWrap.hidden = open;
+    if (updateUrl) {
+      const url = new URL(window.location.href);
+      if (open) url.searchParams.set('diff', '1');
+      else url.searchParams.delete('diff');
+      history.replaceState(null, '', url.toString());
+    }
+  }
+
+  if (diffBtn && diffPanel && specWrap) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('diff') === '1') {
+      setDiffOpen(true, false);
+    }
+    diffBtn.addEventListener('click', () => {
+      const isOpen = diffBtn.getAttribute('aria-pressed') === 'true';
+      setDiffOpen(!isOpen, true);
+    });
+  }
 
   const details = document.getElementById('toc-details') as HTMLDetailsElement | null;
   const desktop = matchMedia('(min-width: 1160px)');
@@ -223,9 +358,10 @@ const PRS = `${REPO}/pulls`;
 
   .masthead {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.6rem 1rem;
     padding-top: 0.9rem;
     padding-bottom: 0.6rem;
     border-bottom: 1px dashed var(--rule-strong);
@@ -243,8 +379,31 @@ const PRS = `${REPO}/pulls`;
   }
   .masthead-right {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.9rem;
+    gap: 0.65rem 0.9rem;
+  }
+  .version-picker-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+  }
+  .version-picker-label {
+    color: var(--muted);
+  }
+  .version-picker {
+    font-family: var(--font);
+    font-size: 0.78rem;
+    background: var(--band);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    padding: 0.14rem 0.4rem;
+    cursor: pointer;
+  }
+  .version-picker:focus-visible {
+    outline: 2px dashed var(--accent);
+    outline-offset: 2px;
   }
   .meta-link {
     color: var(--muted);
@@ -310,6 +469,103 @@ const PRS = `${REPO}/pulls`;
     color: var(--accent-text);
     font-weight: 700;
     border-bottom: 2px solid var(--accent);
+  }
+
+  /* ---------- archive banner (v0 UI-only) ---------- */
+  .archive-banner {
+    margin: 1.5rem 0 0;
+    padding: 0.9rem 1.1rem;
+    border: 2px solid var(--diff-del-text);
+    background: var(--diff-del-bg);
+    font-size: 0.86rem;
+  }
+  .archive-banner-title {
+    margin: 0 0 0.45rem !important;
+    color: var(--diff-del-text);
+    font-weight: 700;
+  }
+  .archive-banner p {
+    margin: 0 0 0.5rem;
+  }
+  .archive-banner-links {
+    margin: 0.5rem 0 0 !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-weight: 700;
+  }
+
+  /* ---------- diff toggle button & panel ---------- */
+  .header-top-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.6rem;
+  }
+  .rfc-badge {
+    margin: 0 !important;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent-text);
+  }
+  .diff-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-size: 0.78rem;
+  }
+  .diff-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--accent);
+    background: var(--accent-tint);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .diff-toggle-btn:hover,
+  .diff-toggle-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .diff-toggle-btn .dt-hide {
+    display: none;
+  }
+  .diff-toggle-btn.active .dt-show {
+    display: none;
+  }
+  .diff-toggle-btn.active .dt-hide {
+    display: inline;
+  }
+  .diff-toggle-btn.active .dt-stats {
+    display: none;
+  }
+  .dt-stats {
+    font-weight: 400;
+    font-size: 0.74rem;
+  }
+  .diff-changelog-link {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .diff-changelog-link:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .diff-panel {
+    margin-bottom: 2rem;
+  }
+  .diff-panel-intro {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
   }
 
   /* ---------- grid layout ---------- */
@@ -457,7 +713,7 @@ const PRS = `${REPO}/pulls`;
       display: none;
     }
     .toc ol {
-      max-height: calc(100vh - 15rem);
+      max-height: calc(100vh - 17rem);
       padding-bottom: 0;
     }
   }
@@ -470,13 +726,6 @@ const PRS = `${REPO}/pulls`;
     padding: 2rem 0 0.6rem;
     border-bottom: 1px dashed var(--rule-strong);
     margin-bottom: 1.5rem;
-  }
-  .rfc-badge {
-    margin: 0 0 0.6rem !important;
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--accent-text);
   }
   h1 {
     margin: 0 0 0.6rem;

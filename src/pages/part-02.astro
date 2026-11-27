@@ -1,20 +1,24 @@
 ---
 import SpecShell from '../components/SpecShell.astro';
-import { renderSpecFile } from '../lib/spec';
+import { buildV1ToV0Diff, renderSpecFile } from '../lib/spec';
 
-const spec = renderSpecFile('spec/02-btc-authorization-domain-and-spv.md');
+const rel = 'spec/02-btc-authorization-domain-and-spv.md';
+const spec = renderSpecFile(rel, 'v1');
+const diffBundle = buildV1ToV0Diff(rel);
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <SpecShell
   activeKey="part-02"
+  version="v1"
   title={spec.title}
-  description="Part 2: Bitcoin Authorization Domain (d_btc_asset) & panic-free Go SPV verifier — 17 input tags, streaming SHA-256, multi-generation TrackedVaultRecord, SMT absence/inclusion halting, and 29 conformance vectors."
+  description="Part 2: Direct-on-L1 panic-recovered Bitcoin SPV verifier (vm/embedded/btcspv), coinbase midstate proof, sweep lock & conflict-only refund verification, and B2 Dynamic Plasma floor."
   pathSlug="part-02/"
-  rawPath="raw/spec/02-btc-authorization-domain-and-spv.md"
+  rawPath={`raw/${rel}`}
   toc={spec.toc}
-  prev={{ label: 'Part 1: Bitcoin Taproot Vault Enforcement', href: `${base}part-01/` }}
-  next={{ label: 'Part 3: Settlement Contract, zBTC & Peg-Free Rails', href: `${base}part-03/` }}
+  diffBundle={diffBundle}
+  prev={{ label: 'Part 1: Bitcoin Federated Custody (BTC-CUSTODY-F1)', href: `${base}part-01/` }}
+  next={{ label: 'Part 3: Lightweight Settlement & Peg-Free Rails', href: `${base}part-03/` }}
 >
   <div class="spec-body" set:html={spec.html} />
 </SpecShell>

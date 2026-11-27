@@ -1,21 +1,24 @@
 ---
 import SpecShell from '../components/SpecShell.astro';
-import { renderSpecFile } from '../lib/spec';
+import { buildV1ToV0Diff, renderSpecFile } from '../lib/spec';
 
-const spec = renderSpecFile('SPEC.md');
+const spec = renderSpecFile('SPEC.md', 'v1');
+const diffBundle = buildV1ToV0Diff('SPEC.md');
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <SpecShell
   activeKey="index"
+  version="v1"
   title={spec.title}
-  pageTitle="zBTC: Bitcoin–Zenon Interoperability Protocol Specification (v2.5.0-rfc)"
-  description="Public RFC specification for BitVM2 Taproot vaults, adversarially-bounded Bitcoin SPV, feeless block-lattice zBTC settlement, 30-day BLS12-381 finality anchoring, and peg-free PTLC/LN rails."
+  pageTitle="zBTC: Bitcoin–Zenon Interoperability Protocol Specification (v1 / v3.0.0-rfc)"
+  description="Public RFC v1 (v3.0.0-rfc): Tier F honest capped Taproot OP_CHECKSIGADD HSM federation, direct-on-L1 trimmed Bitcoin SPV, tranche-isolated feeless zBTC, and peg-free PTLC/LN rails."
   pathSlug=""
   rawPath="raw/SPEC.md"
-  dek="Normative master specification, 5-assumption honest threat model, upstream amendments, and executable verification gates. Agent-ready via /llms.txt and /llms-full.txt."
+  dek="Normative master specification (Tier F), Privileged Powers Table, honest threat model, written R7 Q&A, and v2 trust-minimized research roadmap."
   toc={spec.toc}
-  next={{ label: 'Part 1: Bitcoin Taproot Vault Enforcement', href: `${base}part-01/` }}
+  diffBundle={diffBundle}
+  next={{ label: 'Part 1: Bitcoin Federated Custody (BTC-CUSTODY-F1)', href: `${base}part-01/` }}
 >
   <div class="spec-body" set:html={spec.html} />
 </SpecShell>
