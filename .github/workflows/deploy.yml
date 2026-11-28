@@ -22,8 +22,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify numeric oracle
+      - name: Verify immutable v0 SHA-256 manifest
+        run: (cd versions/v0 && sha256sum -c SHA256SUMS.txt)
+      - name: Verify v1 consistency & bounds checker
         run: python3 -I scripts/verify_spec_bounds.py
+      - name: Verify archived v0 bounds oracle
+        run: python3 -I versions/v0/scripts/verify_spec_bounds.py
       - uses: actions/setup-node@v4
         with:
           node-version: 24

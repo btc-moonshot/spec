@@ -1,136 +1,228 @@
-# Part 1: Bitcoin Interop Enforcement Specification (`BTC-ENFORCEMENT-V1`)
+# Part 1: Zero-Federation Bitcoin Taproot Vault Enforcement (`BTC-BITVMX-V1`), Stage 1B `clArk` Gate & Track B Soft-Fork Annex
 
-**Document Class:** Normative Destination Enforcement Specification (`v2.5.0-rfc`, subject to Upstream Amendments `A-BTC-1` & `A-PILLAR-1`)  
-**Spec Identifier:** `BTC-ENFORCEMENT-V1`  
-**Target Chain:** Bitcoin Mainnet (`bip-0340` Schnorr, `bip-0341` Taproot, `bip-0342` Tapscript, SegWit v1 P2TR)  
-**Bound Domain:** `d_btc_asset` (`zBTC` `MINTED` custody)  
-**Numeric Oracle:** All modeled economic, derived per-block `OP_HASH160` `w=4` W-OTS DA, Leaf-3B SHA-256 stack/size, latency-aware reachability, 180-day multi-gen timeline, staggered CLTV, slow-block tolerance, and joint fee-source inequalities below are asserted in exact integer satoshis in [`scripts/verify_spec_bounds.py`](../scripts/verify_spec_bounds.py). Unmeasured Signet BitVM2 circuit & weight parameters (`~3.5M` outer Groth16 constraints, `<= 15 min` GPU STARK+Groth16 prover time, `95 kvB` / `<= 380 kWU` max disprove chunk incl. Leaf-3B SHA-256 peak stack `<= 1,000`, `220 kvB` Groth16 assert, `2 kvB` challenge, `1 kvB` burn/retire/Take+CPFP, `3 kvB` wrong-deposit disprove, `L = 32`, `C = 1,208`) are explicitly **`ASSUMED STAGE 0C MEASUREMENT TARGETS`** until measured on Signet (Gate G-2).
-
----
-
-## 1. Scope & Custody Profiles
-
-| Profile | Mechanism | Custody Trust Root | Status |
-|---|---|---|---|
-| **Tier 1A (Primary Canonical)** | **Live `1-of-N` `Q_graph` + Deleted-`Q_round` Closed-Lifecycle Serial Round-Chain BitVM2 Taproot Vault** (`State == RELEASED` + single-use `ReimbursementRound` + `AssertCertDATx` BLS12-381 cert DA) | `min(1-of-N live Q_graph, 1-of-N Setup Committee, 1-of-N altruistic capitalized watcher, Zenon 2/3 30-day BLS12-381 Finality Committee with 56d/58d CLTV expiry + 72d post-service lock, 1-of-K Groth16 CRS)` | **Normative design target** |
-| **Tier 1B (Optional Sovereign)** | **Per-Deposit Self-Custodial Taproot Escrow** (Portal V2 Class R: per-deposit MuSig2 + Schnorr adaptor + unconditional CLTV depositor exit) | Depositor co-signs key path; unilateral CLTV refund after expiry | **Optional separate binding & expiring `AssetID`** |
-| **Tier 2 (Future Research)** | **Batched / UTXO-Set Bitcoin Covenant** (depends on future Bitcoin soft-fork opcodes) | Bitcoin L1 consensus + SNARK soundness + Zenon consensus | **Non-normative research target (M-12)** |
-
-> **Explicit Prohibitions**: Portal V2 *"Class P"* custodial pooled multisigs and ANY governed/custodial emergency exit timelock leaf on Tier 1A vault UTXOs are **STRICTLY FORBIDDEN** (C-07). `Q_graph` verifier daemons are deterministic open-source signers that ONLY sign valid BitVM2 reimbursement/recovery graphs.
+**Document Class:** Normative Bitcoin Custody Specification (`v1` / `v3.0.0-rfc`; supersedes `v0` `BTC-ENFORCEMENT-V1`)  
+**Spec Identifier:** `BTC-BITVMX-V1`  
+**Precedence:** **Highest normative layer** ([`SPEC.md §2.1`](../SPEC.md#21-authority--conflict-precedence-m-13-fixed)) — Bitcoin L1 scripts, deleted-key Taproot graphs, `StakeChain` timelocks, and `ExitSlotUTXO` consensus rules cannot be overridden by any Zenon contract, Pillar, or spork.  
+**Target Chain:** Bitcoin Mainnet TODAY (`bip-0141` SegWit, `bip-0340` Schnorr, `bip-0341` Taproot, `bip-0342` Tapscript, `bip-0068`/`bip-0112` relative CSV timelocks, `bip-0431` TRUC v3 + `P2A` ephemeral anchors — **zero Bitcoin soft forks**, **zero custodial federated multisigs**)  
+**Consistency Checker:** [`scripts/verify_spec_bounds.py`](../scripts/verify_spec_bounds.py)
 
 ---
 
-## 2. Cryptographic Primitives, Per-Block `OP_HASH160` W-OTS, Fixed `408 B` Cert DA & Leaf 3B (`R6-H2`, `R6-M1`, `R6-L1`, `G-23`)
+## 1. Cryptographic Boundaries (Theorem 1 & Theorem 2) & Prohibition of Federated Custody
 
-- **Curve & Tagged Hashes**: `secp256k1` (BIP-340/341/342); `H_NUMS_X = 0x50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0` (`lift_x(SHA256(uncompressed G))`); tagged tweaks `zBTC/DepositTweak/v1`, `zBTC/VaultTweak/v1` (`Q_vault_d = Q_graph + H_{"zBTC/VaultTweak/v1"}(x(Q_graph) || depositOutpoint)*G`, key-path-only), `zBTC/RecoveryTweak/v1` (`Q_rec_d = Q_graph + H_{"zBTC/RecoveryTweak/v1"}(x(Q_graph) || oldVaultOutpoint)*G`, key-path-only), and `zBTC/PortalDepositKey/v1`.
-- **Per-Field & Per-Block Checksummed BitVM W-OTS (`w = 4`, `OP_HASH160`, No Bitmasks — `R6-L1`)**: Every value compared in Tapscript uses an independent BitVM Winternitz OTS keypair (no bitmasks; `OP_HASH160` 20-byte chains, `16`-step per nibble) with its own base-16 checksum so forward-hashing ANY digit invalidates its checksum: `W_outpoint` (`claimedOutpoint`: 36 B = 72 + 3 nibbles), `W_outbox` (32 B = 64 + 3), `W_fronting` (32 B), `W_batch` (8 B), `W_binding` (32 B), `W_certda` (`certSetDigest`: 32 B = 64 + 3), `W_pubinput` (32 B), plus the `7` per-block DA keys `W_blk_0..6` and `6` midstate keys `W_mid_1..6` below!
-- **First-Principles Derived Bitcoin Certificate DA & Stack-Safe Leaf-3B SHA-256 (`R6-H2`, `R6-M1`, Zero `OP_CAT`!)**:
-  - **Epoch Alignment & Fixed `408 B` Two-Slot Encoding (`R6-M1`, `S6-3`)**: Each `RoundChain` aligns **`E_anchor_ts = finalityEpochStartTs(E_anchor)`** (`delta = 0`, enforced by exact equality in both registries — `R6-L6`) under **30-day finality epochs** ([`spec/04 §3.1`](./04-bitcoin-anchoring-and-light-client.md#L60-L67)). Because `T_bond_expiry = E_anchor_ts + 58 days < 60 days`, every active chain spans at most **`floor(58 / 30) = 1` handoff certificate + `1` target certificate**. Using IETF **BLS12-381 `min-sig`** (`48 B` compressed G1 sig + `4 B` `signerBitfield`, fixed **`204 B`** up to all `30` signers), the committed DA bytes are **ALWAYS a fixed `408 B` (`3,264` bits)**:
-    `certSetBytes = targetCert (204 B) || handoffSlot (204 B)`
-    where `handoffSlot = handoffCert (204 B)` when `targetCert.finalityEpochIndex == E_anchor + 1`, OR **`204 zero bytes (0x00^204)`** when `targetCert.finalityEpochIndex == E_anchor` (days `0–30`, zero handoff!). Thus BOTH 1-cert and 2-cert assertions hash **identically** across `7` SHA-256 blocks (`408 + 9 B` padding ⇒ `6` full `64 B` blocks + `1` final `24 B` data block with hardcoded padding `0x80 || 0^31 || u64BE(3264)`), producing `6` intermediate `32 B` midstates (`192 B`)!
-  - **Per-Block W-OTS Granularity (`R6-H2`, `1,239` Digits, `29,882 vB → 30 kvB`)**: To prevent both cross-block checksum bloat AND checksum-less digit-forwarding attacks, `AssertCertDATx` commits **7 independent per-block W-OTS messages (`W_blk_0..6`)** + **6 independent midstate messages (`W_mid_1..6`)**:
-    - `W_blk_0..5`: `6 × (128 + 3) = 786` digits (`128 * 15 = 1,920 < 16^3`);
-    - `W_blk_6` (`24 B` data; padding hardcoded in `L3B_6`): `48 + 3 = 51` digits (`48 * 15 = 720 < 16^3`);
-    - `W_mid_1..6`: `6 × (64 + 3) = 402` digits (`64 * 15 = 960 < 16^3`);
-    - **Total = `1,239` `OP_HASH160` `w=4` digits** at exact `95.5 WU/digit` (`191` half-WU/digit), split across **`3` stack-safe inputs** (`[393, 444, 402] <= 492` digits/input under Bitcoin's `1,000`-element limit) in **ONE `AssertCertDATx`**: exact derived weight = **`29,882 vB` → `30 kvB` design budget** ([`scripts/verify_spec_bounds.py`](../scripts/verify_spec_bounds.py) §4A!). Slashing extractors reassemble `targetCert || handoffSlot` directly from `W_blk_0..6`.
-  - **Stack-Safe Leaf 3B (`7` Disprove Chunks, `Leaf 3B_0..6`, Total `C = 1,200 + 7 + 1 (L3A) = 1,208` — `R6-H2`, `S6-2`, `S6-6`)**: Each chunk `L3B_j` verifies the **complete checksummed W-OTS messages** of `W_blk_j`, `W_mid_j`, and `W_mid_{j+1}` (`mid_0 = SHA256_IV` hardcoded, `mid_7 = W_certda`) and runs ONE standard BitVM2 arithmetic SHA-256 compression (`SHA256_compress(mid_j, blk_j) != mid_{j+1}`): `L3B_0 = 198` digits, **`L3B_1..5 = 265` digits (`530` initial witness elements, leaving `470` free under `1,000` for SHA-256 working stack!)**, `L3B_6 = 185` digits (each `<= 95 kvB` / `<= 380 kWU` `ASSUMED STAGE 0C TARGET`, Gate G-2). Forward-hashing ANY digit invalidates its block/midstate checksum!
-- **Inner STARK → Outer BN254 Groth16 Circuit Split (`R6-H1`, `R6-L7`)**:
-  - *Inner STARK / zkVM (BLS12-381 + SHA3-256 Precompiles)*: Executes ALL heavy cryptography inside the inner STARK (`ASSUMED STAGE 0C TARGET: <= 15 min` GPU prover time `<< 288`-block `AssertStart` deadline, Gate G-2): (i) `certSetDigest == SHA256(targetCert || handoffSlot)` over all `408 B`, (ii) enforces `handoffSlot == 0x00^204` iff `targetCert.finalityEpochIndex == E_anchor`, else verifies `handoffCert` BLS12-381 `min-sig` dual supermajority (up to 30 G2 keys, depth-5 SHA-256 `FinalityCommitteeRoot` Merkle proofs, hash-to-G1, pairing) chaining `E_anchor_root → handoffCert.NextFinalityCommitteeRoot`, (iii) verifies `targetCert` BLS12-381 dual supermajority at canonical checkpoint height (`h % 30 == 0` or `h_trans`), and (iv) verifies the 3 `proof-format.md` V1 SHA3-256 SMT paths (`PegOutRecord`, `BatchCommitmentV3`, `ResolutionSeenByOutboxId`). *(Note per `R6-H1`: transition-height handoff validity is enforced **economically** by Zenon's historical-root `SubmitInvalidCertProof` Case A in [`spec/04 §3.3`](./04-bitcoin-anchoring-and-light-client.md#L76-L91), NOT by an in-circuit oracle for `h_trans(E+1)` or `Root(E+1)`! `CarryOverCertificate` is DELETED.)*
-  - *Outer Groth16 BN254 Wrapper*: Verifies ONLY the inner STARK receipt (`ASSUMED TARGET: ~3.5M` R1CS constraints), `vk_bitvm` pinned in `releaseAdapterRef`, Phase-2 CRS ceremony (`K >= 50`, Assumption #5).
+### 1.1 Explicit Prohibition of Custodial Federated Multisigs
 
----
+Pooled custodial `k`-of-`n` multisig federations (whether `OP_CHECKSIGADD`, FROST, or HSM-backed, with or without custodial backup recovery leaves) are **STRICTLY FORBIDDEN** in `v1`. Federated custody introduces up to `100%` collusion loss, breaks liveness whenever `n - k + 1` signers refuse to sign Mike's `0.25 BTC` exit, and stalls under `49%` Zenon DPoS consensus splits.
 
-## 3. Tier 1A: 4-Key Registry, Closed Lifecycle, Normative 30-Day Rotation & Ceremony
+### 1.2 Formal Boundary Proofs
 
-### 3.1 Explicit 4-Key Registry (`R5-L5`, `R5-L8`)
+**Theorem 1 (Impossibility of Pure `0-of-N` Arbitrary Unilateral Exit on Bitcoin Mainnet Today):**
+Given pooled deposit UTXOs `U_A` (`1 BTC`), `U_B` (`1 BTC`) created at `t_0` under current Bitcoin consensus (BIP-340/341/342, zero soft forks), if ZERO pre-committed parties sign a new transaction at `t_1`, no valid Bitcoin L1 transaction exists that allows an unknown future recipient Mike (`P_Mike`, `0.25 BTC` unknown at `t_0`) to spend `U_A` or `U_B` paying `0.25 BTC → P_Mike` while locking `0.75 BTC` back into custody:
+1. BIP-342 Tapscript lacks output introspection (`nValue`/`scriptPubKey`); any spend succeeding without a signature committing to outputs is trivially RBF-replaced by miners substituting `(1.0 BTC → P_miner)`.
+2. Pre-signed transactions at `t_0` using `SIGHASH_ALL`/`SINGLE` fix outputs before `(P_Mike, 0.25 BTC)` exist; `SIGHASH_NONE` permits total theft.
+3. **Corollary 1A (Bob's `0.5 BTC`):** Depositor CSV refund leaves on `U_B` are impossible after fungible minting (Bob would spend `0.5 zBTC` then reclaim `1.0 BTC` via CSV).
+4. **Corollary 1B (Optimistic Reimbursement Bound):** On Bitcoin Mainnet today, every BitVM-family bridge (`BitVM2`/`BitVMX`/`BitVM3`) requires **`1-of-N` ephemeral setup deletion + challenger/verifier safety + `1-of-M` pre-committed operator exit liveness**.
 
-| Key | Construction & Holders | Generation & Signing Epoch | Deletion / Lifetime | Exact Scope & Blast Radius |
-|---|---|---|---|---|
-| **`CommitteeIdentityKey`** | `N`-of-`N` MuSig2 over Setup Committee (`N >= 7`, distinct from `Q_graph`, **Assumption #4**) | Long-lived per binding (rotated via migration) | Long-lived | Authorizes `DepositTx` Leaf A (`RolloverTx_d`), verifies `Q_graph` release transcripts, and signs `BTC_LOCK_PROOF`, `OPERATOR_ROUND_REGISTERED`, and `VAULT_GRAPH_EPOCH_ADDED`. *All-$N$ compromise allows diverting new deposits, registering phantom rounds inflating `G-21`, attesting fake `takeTxidsSmtRoot`s delaying raw-sweep halts by `230` blocks, or activating quarantined vaults with invalid graphs; cannot spend existing vaults.* |
-| **`Q_graph`** | `N`-of-`N` MuSig2 over Verifier Committee (`N >= 7`, `qGraphXOnly` in `releaseAdapterRef`, **Assumption #2**) | Long-lived per binding | **NEVER deleted** | Controls key-path-only `Q_vault_d` & `Q_rec_d`, `Conn_A`/`Conn_B`/`Conn_C` L1 (`Take1`/`Take2`), `ReimburseEscrow` L2 & `BondOut` L3 (`WrongDeposit^{T1,T2}`), and signs canonical Take release transcripts (`R5-L8`). *All-$N$ compromise compromises live vaults; permanent loss of 1-of-N stops future rotations & recovery re-graphing.* |
-| **`Q_round_{m,l,r}`** | `N`-of-`N` ephemeral MuSig2 fresh per round `(m, l, r)` | Generated at **Round-Chain Setup** | **PERMANENTLY DELETED** after Round-Chain Setup! | Guards `ChallengeTx`, `AssertStart/CertDA/Chunk/End`, `BurnBond*`, `DisproveTx`, `RoundKickoffTx_{r+1}`, `RoundRetireTx`, `StaleConnB/CKillTx`, `StaleChainBurnTx`. |
-| **`pk_m`** | Operator `m`'s HSM key (`M >= 5`) | Long-lived per operator | Live | Co-signs round setup, `Take1`/`Take2`, `WrongDeposit^{T1,T2}` (Phase 1 FIRST!), `<pk_m>` CPFP anchors, `ReimburseEscrow` L1, and post-expiry fee-UTXO reclaim. |
+**Theorem 2 (Young Low-Cap Capital / Trust / UX Trilemma — 0 Federation, 0 Soft Forks, `2–20 BTC` Bootstrap Capital):**
+With `0` federated signers, `0` soft forks, `~25–33 BTC` ZNN market cap (`0%` ZNN slashing usable), and realistic bootstrap capital `C ∈ [2, 20] BTC`, no protocol simultaneously achieves **(A)** instant non-expiring fungible cross-depositor `zBTC`, **(B)** `1-of-∞` permissionless challenging surviving `200–500 sat/vB`, and **(C)** `0-of-N` unilateral arbitrary L1 exit:
+- **Minimal `BitVM2` (`M = 3–5, L = 1`) fails `C ≤ 20 BTC`:** Groth16 `AssertTx` (`~1.0–1.3M vB` / `4.0–4.8 MB` W-OTS) is a fixed Bitcoin-Script constant imposing `13.30–18.175 BTC`/lane (`39.9–90.9 BTC` in bonds alone before fronting liquidity; under-bonding to `≤ 20 BTC` breaks above `50 sat/vB`).
+- **Stage 1A Right-Sized `BitVMX` (`n = 8`, `M = 3–5`, `L = 1`, `N = 7`)** achieves **(A)** inside **`12.8–18.8 BTC`** by accepting `1-of-N` (`N = 7`) pre-committed online verifiers and `1-of-M` (`M = 3–5`) operator liveness.
+- **Stage 1B `clArk`** achieves post-round **(C)** inside **`2–5 BTC`** by sacrificing **(A)** (discrete expiring VTXOs, pre-round `arkoor` sender+ASP collusion, no global pooled `zBTC`).
 
-### 3.2 Closed Lifecycle, Staggered CLTVs & Normative 30-Day Rotation Schedule (`R5-H3`, `R6-M2`, `R6-L4`, `R6-L6`, `R6-L8`, `R6-L9`)
-
-- **Globally Unique `roundId` & Exact Epoch Alignment (`R6-L2`, `R6-L6`)**: `roundId : u32 = (roundChainEpochId[12b] << 20) | (laneIndex[4b] << 16) | roundIndexInLane[16b]`, defining **`roundChainEpochId == E_anchor < 4096`** and enforcing **`anchorExpiryTs == finalityEpochStartTs(roundChainEpochId) + 58 days`** (`anchorCutoffTs == anchorExpiryTs - 12 days`) by **exact equality** in BOTH Settlement and `d_btc_asset`!
-- **Staggered `46d / 56d / 58d` Timelocks & Slow-Block Tolerances (`R5-L3`, `R6-L8`, Asserted in Oracle §4D)**:
-  - Each lane has `R = 8` rounds (`T_bond_cooldown = 792` blocks = `5.5d` ⇒ `44.0d <= 46.0d`), anchored at `E_anchor_ts(g) = finalityEpochStartTs(E_anchor(g))`.
-  - **`T_kickoff_cutoff(g) = E_anchor_ts(g) + 46 days`** (`= T_bond_expiry(g) - 12 days`, stored on BOTH Settlement & domain `OperatorBondRecord`!). `ClaimReimbursementSlot` enforces serial reachability (`max(now, lastClaimedTs + 5.5d) <= T_kickoff_cutoff(g)`), guaranteeing an honest challenged operator unlocks `Take2` by `<= day 51.0` (`5.0d` before `T_kill_expiry = day 56`), settles escrow by `<= day 51.5`, and has **`6.5` full days (`936` blocks, `[day 51.5, day 58)`)** to retire its bond via `RoundRetireTx`! *(Slow-block tolerance disclosed per `R6-L8`: `Take2` remains safe up to `1.476x` average block intervals and retirement up to `1.591x`; sustained slower block production is an explicit impairment trigger under §5 #1!)*
-  - **`T_kill_expiry(g) = E_anchor_ts(g) + 56 days`** (`OP_CLTV` on `Conn_B` L4 & `Conn_C` L4): Kills `Take1`/`Assert`/`Take2` `2` full days (`288` blocks `> 72`-block escrow trap!) BEFORE `StaleChainBurnTx` unlocks — preventing trap pre-emption (`R5-L3`)!
-  - **`T_bond_expiry(g) = E_anchor_ts(g) + 58 days`** (`OP_CLTV` on `GenesisBond` L3 & `BondOut` L5): Burns any unretired stale bond (`1.85 BTC` burn, `1.85 BTC` watcher) AND unlocks operator reclaim on unused `RoundFeeUTXO` / `AssertFeeUTXO` (`R5-L4`).
-- **Normative 30-Day Generation Rotation Schedule (`R5-H3`, `R6-M2`, `R6-L4`, `R6-L9`)**:
-  1. At `E_anchor_ts(g) + 30 days`, the new 30-day finality epoch `E_anchor(g+1) = E_anchor(g) + 1` begins.
-  2. By **`E_anchor_ts(g) + 32 days`** (target day `30`, deadline day `32`), Operators & `Q_graph` MUST register generation `g+1` (`E_anchor_ts(g+1) = E_anchor_ts(g) + 30d`, `T_bond_expiry(g+1) = day 88`) via authenticated `OPERATOR_ROUND_REGISTERED` (`0x0B`). Every new deposit created after `g+1` registration MUST carry a `g+1` graph (`R6-L4`). Simulated over `[0, 180]` days (Oracle §4D), **at most `2` generations ever overlap** (`37.0 BTC` steady-state, `74.0 BTC` peak during the `8–28` day handoff)!
-  3. Between **day `32` and day `43`** (`3` full days before `T_kickoff_cutoff` and `5.5` days before quarantine unlocks, accommodating `60h` batch finalization — `R6-L4`!), for EVERY live vault (`UNASSIGNED`, `ASSIGNED`, `QUARANTINED`, **AND un-claimed `RELEASED` vaults where `ReimbursementRoundId == 0`** — `R6-M2`), Operators execute Phase 1 (`WrongDeposit^{T1,T2}` on `g+1`), `Q_graph` executes Phase 2 + signs the canonical sorted Take release transcript + publishes Take-txid leaf DA (`R6-L5`), and Setup Committee (`CommitteeIdentityKey`) verifies the transcript and submits **`VAULT_GRAPH_EPOCH_ADDED` (`0x0D`)** adding `{g+1, eligibleBitmask_{g+1}, takeTxidsSmtRoot_{g+1}}` alongside epoch `g` (strictly rejecting duplicate or 3rd unexpired epochs!).
-  4. **Missed-Rotation Quarantine Rule (`day 48.5 = T_kickoff_cutoff + 60h`, `R6-L3`, `R6-L4`)**: Any `UNASSIGNED` or `ASSIGNED` vault lacking an epoch-`g+1` graph once `now >= T_kickoff_cutoff(g) + 60 hours` (allowing any day-`43` `0x0D` to finalize cleanly!) is transitioned to `QUARANTINED (reason = UNROTATED)` via permissionless `QuarantineExpiredVault(outpoint)` (`unrotatedVaultCount++`), pausing new `MINTED_LOCK_V1` mints (deferring to `DeferredLockQueue`) until `SyncVaultGraphEpoch` restores those vaults (`unrotatedVaultCount--`) or Governance initiates Wind-Down!
-- **Latency-Aware & Reservation-Aware Dynamic Reachable Capacity (`G-21`, `R6-M2`, `R6-L9`)**:
-  - Define **`T_release_horizon = 4h (slot) + 2.33h (K=14) + 60h (batch+session) + 5.67h margin = 72h = 3.0 days`**.
-  - `ReachableRounds(m, e, l, t_eval) = 0` if lane retired (`0x10`) or `max(t_eval, nextEligibleKickoffTs) > T_kickoff_cutoff(e)`; else `max(0, min(unused, floor((T_kickoff_cutoff(e) - max(t_eval, nextEligibleKickoffTs)) / 5.5d) + 1) - pendingReservations(m, e, l))`.
-  - Evaluated at **`t_eval = now + T_release_horizon`** in `RequestPegOut`, `ClaimFrontingSlot`, AND `MINTED_LOCK_V1`!
-  - **Disclosed Periodic Pre-Epoch `DeferredLockQueue` Window (`R6-L9`, Verified in Oracle §4D 180-Day Sim)**: At `15 BTC` max supply (`G-21` threshold `15 + 25 = 40` reachable rounds), gen `g` alone stays `>= 40` through day `26.5`; during the `~5.0`-day window (`day 26.6 .. 32.0`) before gen `g+1` registers (minimum `30 >= 15` supply, `< 40` margin), new `MINTED_LOCK_V1` mints smoothly queue in `DeferredLockQueue` and immediately drain once gen `g+1` registers (`>= 110` rounds)! Peg-outs remain 100% open throughout (`30 >= 15`)!
-
-### 3.3 Normative Two-Phase Ceremony & Mandatory 2-Input Rollover
-
-1. **Phase 1**: Operators sign BOTH `WrongDepositDisproveTx^{T1}` and `WrongDepositDisproveTx^{T2}` FIRST and submit valid `pk_m` sigs to `Q_graph`.
-2. **Phase 2**: Only for Phase-1-compliant operators does `Q_graph` release `Take1`/`Take2` sigs, publish the canonical sorted Take-txid leaf list (`takeTxidsBlobHash` DA — `R6-L5`), and sign the release transcript (`takeTxidsSmtRoot`). Setup Committee verifies the transcript & leaf DA, signs `BTC_LOCK_PROOF` (`CommitteeIdentityKey`), and broadcasts mandatory 2-input `RolloverTx_d` (`nSequence = 0xfffffffd`). If unconfirmed by `h_dep + 120`, Reserve (watched by Reserve-liveness monitor) MUST double-spend `In 1`, with depositor Leaf-B RBF fallback at `h_dep + 144`.
+| Custody Track | Soft Fork? | Bootstrap BTC | Zenon Trust (`49%–100%`) | Custody Safety | Mike `0.25 BTC` Liveness (0 Zenon Signers) | Status in `v1` |
+|---|---|---|---|---|---|---|
+| **Stage 0 (SPV + PTLC/LN)** | No | `0 BTC` bonds (`0–5` LP) | `0-of-N` | Pure self-custody | N/A (no pooled `zBTC`) | **Mandatory Stage 0** |
+| **Stage 1A (`BitVMX n=8` Rollup)** | **No (Today)** | **`12.8–18.8 BTC`** | **`0-of-N`** | `1-of-N` setup/cohort + **`1-of-7`** online verifier | **`1-of-M` (`M=3–5`)** op (`~10m` front; `65–72d` 100% run) | **Primary Stage 1A** *(pre-mainnet R&D)* |
+| **Stage 1B (`clArk` VTXOs)** | **No (Today)** | **`2–5 BTC` liq** | **`0-of-N`** | Post-round `0-of-N` (pre-round `arkoor` trusts ASP) | Post-round `0-of-N` until expiry (whole VTXO) | **Explicit Stage 1B Alt** |
+| **Appendix A: Track B Covenant+ZK** | **Yes (`OP_CCV`+ZK or `OP_CAT`)** | **`0 BTC` bonds** | **`0-of-N`** | **Pure `0-of-N`** | **Pure `0-of-N`** (1 L1 tx direct from pooled UTXO) | **Non-Normative Annex** |
 
 ---
 
-### 3.4 Complete Closed-Lifecycle, Staggered-CLTV BitVM2 DAG
+## 2. Stage 1A Deleted-Key Vaults, Acyclic Deposit Ceremony & Zero-TTP Cohort Rule
 
-*(Relay policy — Gate G-1: Fee bumping of non-TRUC v2 parents via `<pk_m>` 330-sat CPFP anchors relies on Bitcoin Core v28+ 1p1c package relay, verified on Signet in Stage 0C.)*
+### 2.1 Multi-Tier Vault Split (`{0.50, 0.25, 0.25}` BTC)
 
-| Tx Name | Signer Set & Signing Epoch | Fee Source (`@ 500 sat/vB`) | Exact Inputs (Outpoint, `nSeq`/`nLockTime`, Sighash) | Exact Outputs (Index, Fixed Value, Tapscript Leaves) |
-|---|---|---|---|---|
-| **`RolloverTx_d`** | `CommitteeIdentityKey` (Phase 2, after `Q_graph` transcript!) | Mandatory Reserve `In 1` + Reserve CPFP `Out 1` (`<= 0.005 BTC`) | `In 0`: `DepositTx:depVout` (`0xfffffffd`, Leaf A)<br>`In 1`: Mandatory Operations Reserve fee UTXO | `Out 0`: **`TerminalVaultUTXO_d`** (`1.0000 BTC`, key-path-only `Q_vault_d`)<br>`Out 1`: Reserve change (CPFP) |
-| **`RoundGenesisTx_{m,l}`** | Operator `m` + `Q_round_{m,l,0}` (Round Setup) | Operator funding inputs | Operator `3.70 BTC` bond + fee UTXOs | `Out 0` (**`GenesisBond`** `3.70 BTC`): L1=`RoundKickoff_{0}`; L2=`<Q_round_0> CSVFY <pk_m> CS` (`RoundRetireTx_{init}`); L3=`<T_bond_expiry=58d> CLTV <Q_round_0> CS` (`StaleChainBurn_{init}`)<br>`Out 1..R`: `RoundFeeUTXO` / `AssertFeeUTXO` (L1=`<Q_round> CSVFY <pk_m> CS`; **L2=`<T_bond_expiry> CLTV <pk_m> CS`** reclaim — `R5-L4`) |
-| **`RoundKickoffTx_{m,l,r}`** (`r=0..7`) | `Q_round` + `pk_m` (**Round Setup**, deleted!) | `RoundFeeUTXO` + `Out 3 <pk_m>` CPFP (`<= 0.010 BTC`) | `In 0`: Prior `BondOut` L2 (`nSeq=792` for `r>0`, `SIGHASH_ALL`; per-field checksummed `OP_HASH160` `w=4` W-OTS `W_kick`)<br>`In 1`: `RoundFeeUTXO` (`SIGHASH_ALL`) | `Out 0` (**`Conn_A`**, 330): L1=`<144> CSV <Q_graph> CSVFY <pk_m> CS` (`Take1`); L2=`<Q_round> CSVFY <pk_m> CS` (`ChallengeTx`)<br>`Out 1` (**`Conn_B`**, 330): L1=`<144> CSV <Q_graph> CSVFY <pk_m> CS` (`Take1`); L2=`<Q_round> CSVFY <pk_m> CS` (`AssertStart`); L3=`<288> CSV <Q_round> CS` (`BurnBond`); **L4=`<T_kill_expiry=56d> CLTV <Q_round> CS` (`StaleConnBKill`)**<br>`Out 2` (**`BondOut`**, **`3.7000 BTC`**): L1=`<Q_round> CS` (`BurnBond*`/`Disprove`); L2 (`r<7`)=`<792> CSV <Q_round> CSVFY <W_kick_{r+1}> <pk_m> CS` (`RoundKickoff_{r+1}`); L3=`<Q_graph> CSVFY <pk_m> CS` (`WrongDeposit^{T1,T2}`); L4=`<792> CSV <Q_round> CSVFY <pk_m> CS` (`RoundRetireTx`); **L5=`<T_bond_expiry=58d> CLTV <Q_round> CS` (`StaleChainBurn`)**<br>`Out 3`: `<pk_m>` CPFP (`330` sats) |
-| **`RoundRetireTx_{m,l,r}`** | `Q_round` + `pk_m` (**Round Setup**, deleted!) | `99,670`-sat base + `Out 1 <pk_m>` CPFP (`<= 0.005 BTC`) | `In 0`: `BondOut` L4 (`nSeq=792`, `SIGHASH_ALL`) *(or `GenesisBond` L2, no CSV)* | `Out 0`: Operator `m` `<pk_m>` (**`3.6990 BTC`**)<br>`Out 1`: `<pk_m>` CPFP (`330` sats) |
-| **`StaleConn{B,C}KillTx`** (`56d`) & **`StaleChainBurnTx`** (`58d`) | `Q_round` (**Round Setup**, deleted!) | Watcher `In 1+` (~150 vB fee) for `Kill`; Out 1 (`1.85 BTC`) for `Burn` | • `StaleConn{B,C}Kill` (`nLockTime=56d`): `In 0 = Conn_B/C` L4 (`SIGHASH_SINGLE\|ACP`) + Watcher `In 1+`<br>• `StaleChainBurn` (`nLockTime=58d`): `In 0 = BondOut` L5 (`SIGHASH_SINGLE` no ACP) | • `Kill`: `Out 0 = OP_RETURN "STALE"` (`0` sats; locks out Takes `2d > 72` blks before bond burn!)<br>• `Burn`: `Out 0 = OP_RETURN Burn` (**`1.8500 BTC`**), `Out 1 = Watcher` (`1.8500 BTC - fee`) |
-| **`Take1Tx_{d,m,l,r}`** | `Q_graph` + `pk_m` (**Phase 2**) | `1,330`-sat base + `Out 2 <pk_m>` CPFP (`<= 0.005 BTC`) | `In 0`: `RolloverTx_d:0` (`SIGHASH_ALL`); `In 1`: `Conn_A` L1 (`144`); `In 2`: `Conn_B` L1 (`144`) | `Out 0`: **`ReimburseEscrow^{T1}` (`99,899,000` sats)**: L1=`<72> CSV <pk_m> CS`; L2=`<Q_graph> CSVFY <W_outpoint != outpoint_d>` (`WrongDeposit^{T1}`)<br>`Out 1`: Reserve (`100,000` sats); `Out 2`: `<pk_m>` CPFP (`330` sats) |
-| **`ChallengeTx_{m,l,r}`** *(Terminal Sink!)* | `Q_round` + `pk_m` (**Round Setup**, `SIGHASH_SINGLE\|ACP`) + Watcher | Watcher `In 1+` (`<= 0.010 BTC`) | `In 0`: `Conn_A` L2 (`SIGHASH_SINGLE\|ACP`); `In 1+`: Watcher (`1.45 BTC + fee`) | `Out 0`: **Operator `m` (`F_assert_fixed = 1.4500 BTC`)** *(ZERO pre-signed descendants!)* |
-| **`BurnBond*Tx`** | `Q_round` (**Round Setup**, deleted!) | Deducted from `Out 1` (`<= 0.005 BTC`) | `In 0`: `BondOut` L1 (`3.70 BTC`, `SIGHASH_SINGLE` no ACP)<br>`In 1`: Timeout leaf (`288`/`72`/`216`), `SIGHASH_NONE` no ACP | `Out 0`: `OP_RETURN` Burn (**`1.8500 BTC`**)<br>`Out 1` *(watcher-added)*: Watcher (`1.8500 BTC - fee`) |
-| **`AssertStartTx`** → Parallel **`AssertCertDATx`** (`29,882 vB → 30 kvB`, `3` inputs) + **`AssertChunkTx_{1..32}`** → **`AssertEndTx`** | `Q_round` + `pk_m` (**Round Setup**, deleted!; `220 + 30 = 250 kvB` combined) | `AssertFeeUTXO` + per-tx `<pk_m>` CPFP anchors on `AssertStart`, `AssertCertDA`, EVERY `AssertChunk_i`, and `AssertEnd` funded **JOINTLY** by `F_assert = 1.45 BTC` | • `AssertStart`: `In 0 = Conn_B` L2 (`SIGHASH_ALL`) → `3 + 32` outputs (L1=`<Q_round> CSVFY <pk_m> CS`, L2=`<72> CSV <Q_round> CS`) + `Out cp <pk_m>` CPFP<br>• `AssertCertDA` (`3` stack-safe inputs `[393, 444, 402] <= 492`): **7 per-block checksummed `OP_HASH160` `w=4` W-OTS blocks (`W_blk_0..6`, fixed `408 B` `targetCert\|\|handoffSlot`)** + `6` midstates (`W_mid_1..6`, `1,239` digits total) → `Out 0` (L1/L2) + `Out 1 <pk_m>` CPFP<br>• `AssertChunk_{1..32}`: W-OTS Groth16 intermediates → `Out 0` (L1/L2) + `Out 1 <pk_m>` CPFP<br>• `AssertEnd`: `In 0..32` (`SIGHASH_ALL`) | `AssertEndTx:0` (**`Conn_C`**, 330):<br>• L1: `<144> CSV <Q_graph> CSVFY <pk_m> CS` (`Take2Tx`)<br>• L2: `<216> CSV <Q_round> CS` (`BurnBondTake2Tx`)<br>• **L3A (`1` leaf)**: `<Q_round> CSVFY <Per-Field Kickoff-to-SNARK Binding>` (hardcoded `(operatorId_m, roundId, E_anchor_root)`)<br>• **L3B_0..6 (`7` leaves, `<= 265` digits/leaf)**: `<Q_round> CSVFY <Complete-Checksummed Block+Midstate SHA-256 Compression Check>` (`SHA256(mid_j, blk_j) != mid_{j+1}`)!<br>• **L4: `<T_kill_expiry=56d> CLTV <Q_round> CS` (`StaleConnCKill`)**<br>• L5..1204 (`1,200` leaves; **total `C = 1,208`**): `<Q_round> CSVFY <Groth16 Chunk Verifier>` (`<= 95 kvB` **ASSUMED TARGET**)<br>`AssertEndTx:1`: `<pk_m>` CPFP (`330` sats) |
-| **`Take2Tx_{d,m,l,r}`** | `Q_graph` + `pk_m` (**Phase 2**) | `1,000`-sat base + `Out 2 <pk_m>` CPFP (funded JOINTLY by `F_assert`) | `In 0`: `RolloverTx_d:0` (`SIGHASH_ALL`); `In 1`: `Conn_C` L1 (`144`, `SIGHASH_ALL`) | `Out 0`: **`ReimburseEscrow^{T2}` (`99,899,000` sats)**: L1=`<72> CSV <pk_m> CS`; L2=`<Q_graph> CSVFY <W_outpoint != outpoint_d>` (`WrongDeposit^{T2}`)<br>`Out 1`: Reserve (`100,000` sats); `Out 2`: `<pk_m>` CPFP (`330` sats) |
-| **`DisproveTx_{m,l,r,c}`** | `Q_round` (**Round Setup**, deleted!) + Watcher witness | Deducted from `Out 1` (`<= 0.475 BTC`) | `In 0`: `BondOut` L1 (`3.70 BTC`, `SIGHASH_SINGLE` no ACP)<br>`In 1`: `Conn_C` Leaf `c` (`SIGHASH_NONE` no ACP) | `Out 0`: `OP_RETURN` Burn (**`1.6500 BTC`**)<br>`Out 1` *(watcher-added)*: Watcher (`2.0500 BTC - fee`) |
-| **`WrongDepositDisproveTx^{T1,T2}_{d,m,l,r}`** | `Q_graph` + `pk_m` (**Phase 1 FIRST!**) + Watcher `W_outpoint` witness | Deducted from `Out 2` (`<= 0.015 BTC`) | `In 0`: `Take1:0` (`T1`) OR `Take2:0` (`T2`) (`99,899,000` sats, `SIGHASH_SINGLE` no ACP → locks `Out 0`)<br>`In 1`: `BondOut` L3 (`3.70 BTC`, `SIGHASH_SINGLE` no ACP → locks `Out 1`) | `Out 0`: **`RecoveryVaultUTXO_d` (`99,899,000` sats to `Q_rec_d` — inserted `QUARANTINED` until re-graphed)**<br>`Out 1`: `OP_RETURN` Burn (**`2.7000 BTC`**)<br>`Out 2` *(watcher-added)*: Watcher (`1.0000 BTC - fee`) |
+Every `1.0 BTC` deposit splits at deposit time into three standardized deleted-key vault UTXOs:
+- **Canonical Stage 1A Split:** **`{0.50, 0.25, 0.25}` BTC** (`3` vaults/BTC, average vault **`0.333 BTC`**, **`maxVaultDenom = 0.50 BTC`**).
+  - Bob's `0.50 BTC` recovery maps 1:1 to a `0.50 BTC` vault immediately; Mike's `0.25 BTC` recovery maps 1:1 to a `0.25 BTC` vault immediately; arbitrary non-bucket amounts (e.g. `0.2371 BTC` or `0.001 BTC`) are paid in exact satoshis by `FrontingTx` and batched via `ReimbursementCredit[O_j]` until hitting an available `0.25`/`0.50 BTC` vault (**zero new presigning needed**).
+  - *Throughput Option:* Operators/deployments prioritizing faster bank-run recycling over direct `0.25 BTC` vault mapping may configure `{0.50, 0.50}` BTC (`2` vaults/BTC, avg `0.50 BTC`, reducing 100% bank-run duration by `~33%` with identical `maxVaultDenom = 0.50 BTC` and zero bond increase).
 
----
+### 2.2 Acyclic `DepositTx` Ceremony (`OP_DROP` Witness-Stack Push — Closes `v0 C-4, N-2, M-7`)
 
-### 3.5 Parametric Integer-Satoshi Economics & Altruistic Watcher Reality (Asserted in `scripts/verify_spec_bounds.py` §4B)
+Because `vk_STF` is immutably hard-pinned and never rotates with PoS epochs, **Stage 1A vault graphs NEVER expire and NEVER require re-graphing**. There is NO `ProvisionalDepositScript`, NO `RolloverTx`, and NO standing `CommitteeIdentityKey`:
 
-Derived in exact integer satoshis from `Assert (220 kvB) + Derived CertDA+Midstates (30 kvB) + Take2+CPFP (1 kvB) = 251 kvB` (`1.2550 BTC` @ `500 sat/vB`) ⇒ **`F_assert = 1.45 BTC`** (break-even **`289.0 kvB`**, `+39.0 kvB` / `+15.6%` headroom!), `DisproveBurn = 1.65 BTC`, `TimeoutBurn = 1.85 BTC`, **`OperatorRoundBond = 3.70 BTC`**, `WrongDepositBurn = 2.70 BTC`:
+1. **Self-Custodial Staging UTXO (`U_dep_wallet`):** Depositor locks `1.0 BTC + fee` into a pre-committed Tapscript **`OP_DROP <pk_depositor> OP_CHECKSIG`** (independent of `DepositTx`, eliminating any SHA-256 hash cycle!).
+2. **Deterministic Unsigned `DepositTx`:** Spends `vin[0] = U_dep_wallet` → `vout[0..2]` = vault UTXOs `U_0 (0.50 BTC)`, `U_1 (0.25 BTC)`, `U_2 (0.25 BTC)` + `vout[3]` = **`69 B` standard `OP_RETURN`**:
+   ```text
+   OP_RETURN <"ZBTX"(4B) || 0x00(1B) || recipientAcctHash(32B) || vaultParamsHash(32B)>
+   ```
+   Because `vout[3]` does **NOT** hash `certBlob`, **`txid_dep` is 100% fixed before presigning or attestation**.
+3. **Ephemeral Deleted-Key Presigning:** Depositor + `N = 7` presigners + all online operators (`≥ M_min`, encoded in `opBitmask` `u64`) generate fresh per-deposit ephemeral keys `(x_{i,d}, P_{i,d})` (including the depositor's own ephemeral key `P_{dep,d}`!) forming `Q_setup_d = MuSig2_KeyAgg(P_{1,d}, ..., P_{N,d}, P_{dep,d})`. They presign ONE `TakeTx_{d,j,l,r}` per eligible operator lane `(j, l)` and unused round `r ∈ {r_cur..R}` (Stage 1A `M = 5, L = 1, R = 64` ⇒ **`320` pre-signed `TakeTx`s per vault**, `~40 KB` off-chain, `< 100ms` batch MuSig2 ONCE at deposit).
+4. **Immediate Ephemeral Key Deletion & Non-Spending Attestation:** Each presigner `i` **permanently deletes `x_{i,d}`** and signs a non-spending identity attestation `σ_cert` (`64 B` MuSig2 over `id_1..id_N`, co-verified by eligible operators) covering `(txid_dep, Q_setup_d, opBitmask, vaultParamsHash)`:
+   ```text
+   certBlob = σ_cert(64B) || Q_setup_d(32B) || opBitmask(8B)   [exact 104 B <= 520 B BIP-342 limit]
+   ```
+5. **Zero-Stranding Broadcast:** Only after verifying every pre-signed `TakeTx` and `σ_cert` does the depositor delete `x_{dep,d}`, push witness stack **`[sig_depositor, certBlob, script, controlBlock]`** into `DepositTx.vin[0].witness`, and broadcast. Because witness stacks are excluded from `txid_dep` and authenticated by `wtxid_dep` in the coinbase BIP-141 witness commitment, there is **zero hash cycle**. At `K` confirmations, the Rollup STARK (`spec/02 §3`) verifies real satoshi outputs, Taproot script derivation, and `σ_cert`, and credits `1.0 zBTC`.
 
-| Fee Rate | Uncontested Watcher (Dis / TO / Sub) | **Realistic Watcher vs Self-Slasher / MEV** | Fraud Op (100% Self-Slash) | Honest Challenged Op (Joint `Assert+DA+Take2`) |
-|---|---:|---:|---:|---:|
-| `1 sat/vB` | `+0.5990 / +0.4000 / +1.0000` | **`-1.4500 BTC`** *(altruistic)* | `-0.20 / -0.40 BTC` | `+1.4475 BTC` |
-| `50 sat/vB` | `+0.5515 / +0.3985 / +0.9985` | **`-1.4510 BTC`** *(altruistic)* | `-0.37 / -0.40 BTC` | `+1.3245 BTC` |
-| `200 sat/vB` | `+0.4060 / +0.3940 / +0.9940` | **`-1.4540 BTC`** *(altruistic)* | `-0.89 / -0.40 BTC` | `+0.9480 BTC` |
-| `500 sat/vB` | `+0.1150 / +0.3850 / +0.9850` | **`-1.4600 BTC`** *(altruistic)* | `-1.93 / -0.41 BTC` | **`+0.1950 BTC`** |
+### 2.3 Zero-TTP Cohort Lifecycle Rule
 
-- **Quantified Operator Bond & Capital**: `OperatorBond_ZNN >= 31,500 ZNN`/op (weekly Governance cadence) + `500 ZNN` forfeitable `SlotBondZnn`, `37.0 BTC` steady-state BTC bonds (`74.0 BTC` peak `8–28`-day overlap), `1.46 BTC`/lane altruistic watcher liquidity (`14.60 BTC` all 10 lanes).
-- **Retail `< 1.0 BTC` Routing**: Peg-free PTLC/LN gateways ([`spec/03 §5`](./03-settlement-minted-zbtc-and-feeless-rails.md#L165-L182)).
+Inside a single fungible `zBTC` pool, **NO governance key, Pillar vote, or threshold committee can EVER add a new presigner cohort**:
+1. **Voluntary Handover (Same `vk_STF` Only):** Only **`N`-of-`N`** (`7-of-7`) of Cohort 1 (preserving strict `1-of-N` safety!) may sign a handover certificate registering Cohort 2.
+2. **Involuntary `1-of-N` `id_i` Key Loss:** All existing Cohort 1 vaults and `zBTC` balances remain **100% safe and 100% live forever** (zero bricking), while *new* deposits on `v1` halt cleanly. Future deposits launch a **clean, non-commingled sovereign deployment (`zBTC_v2`)** with fresh Cohort 2. *(Long-term `id_i` uses redundant HSM backup; ephemeral `x_{i,d}` is NEVER backed up.)*
+3. **Explicit Residual Open-Cohort Bound:** While a cohort accepts new deposits, at least `1-of-N` `{id_1..id_N}` must remain uncompromised (otherwise all `N` compromised `id_i` keys could attest a fake new deposit into the shared pool; existing deleted-key vaults still cannot be swept directly).
 
 ---
 
-## 4. Tier 1B (Optional Class R Escrow) & Tier 2 (Research Target)
+## 3. Right-Sized `BitVMX` (`n = 8`, `RV32IM`) `StakeChain`, 256-Bit Lamport `TakeTx` & TRUC v3 Wiring
 
-- **Tier 1B (Portal V2 Class R)**: Separate binding + expiring/non-fungible `AssetID`; `deposit_key_point = frost_epoch_key + H_{"zBTC/PortalDepositKey/v1"}(frost_epoch_key || deposit_id)*G`; key path `MuSig2([deposit_key_point, pk_u])`; Leaf 1 Schnorr adaptor; Leaf 2 unconditional CLTV depositor exit.
-- **Tier 2 (Research Target — M-12)**: Future batched / UTXO-set Bitcoin covenant once soft-fork opcodes activate (non-normative).
+### 3.1 Launch-Time `StakeChain` & PoW Anchor (`t = 0`, `M = 3–5`, `L = 1`, `N = 7`, `R = 64`)
+
+Before accepting deposits, each operator `O_j` (`j ∈ {1..M}`) launches `L = 1` serial `StakeChain` lane `(j, l)` (`R = 64` finite rounds):
+- **Launch-Time Bitcoin PoW Anchor (Zero Pre-Broadcast Cycle):** Each lane pins an **already-confirmed** Bitcoin block `(h_lane_init, H(h_lane_init), D(h_lane_init))` inside its `BitVMX-CPU` `RV32IM` verifier program at `t = 0` (before `Q_lane_{j,l}` deletion). In-circuit header verification enforces full Bitcoin PoW + 2,016-block retargeting from `h_lane_init` with minimum difficulty floor **`D(h) ≥ 0.50 × D(h_lane_init)`** across the lane's finite `R = 64`-round horizon.
+- **TVL-Scaled Private-Fork Confirmation Depth `K`:** Sized against **100% multi-operator collusion on a single private fork**:
+  ```text
+  0.50 * K(era, Cap_TVL) * Subsidy(era) > Cap_TVL
+  ```
+  At `Subsidy = 3.125 BTC` (2024–2028) and `α_diff = 0.50` (`1.5625 BTC/blk` floor, `3.125 BTC/blk` nominal):
+  - **`Cap_TVL ≤ 15 BTC` (Stage 1A Pilot):** **`K = 14` blocks** (~2.3h) ⇒ PoW cost `21.88–43.75 BTC > 15 BTC`.
+  - **`Cap_TVL ≤ 50 BTC` (Stage 2):** `K = 36` blocks (~6h) ⇒ PoW cost `56.25–112.50 BTC > 50 BTC`.
+  - **`Cap_TVL ≤ 200 BTC` (Stage 2):** `K = 144` blocks (~24h) ⇒ PoW cost `225.0–450.0 BTC > 200 BTC`.
+  *(If mainnet difficulty grows `> 2×` within a lane's active lifetime, `α_diff` tightens proportionally — e.g. `0.33` at `3×` growth ⇒ `K = 20 / 54 / 216` — or fresh lanes re-anchor `(h_lane_init, D)`.)*
+- **Pre-Signed Linear `StakeChain` (`Stake_0 → RoundTx_1 → Stake_1 → ... → RoundTx_R`):**
+  - `O_j` locks **`Bond_BTC = 2.00 BTC`** in `Stake_0` under ephemeral `Q_lane_{j,l}` (all `N = 7` presigner ephemeral shares **permanently deleted** after presigning the `R = 64` rounds!).
+  - Each round `r ∈ {1..R}` binds a one-time **256-bit Lamport keypair `L_{j,l,r}`** (`256` `OP_HASH160` pairs `(H_{k,0}, H_{k,1})`) signing `vaultHash_d = SHA256(outpoint_d)`.
+  - **`RoundTx_r`** (spends `Stake_{r-1}` after `<1,296> OP_CSV`, revealing `256` Lamport preimages = `5,376 B` witness ≈ `1,344 vB`, total `RoundTx_r ≈ 1.8 kvB ≤ 10,000 vB` **TRUC v3**) creates:
+    - **`Out 0 = Stake_r` (`Bond_BTC = 2.00 BTC`):**
+      - **Leaf 1 (Next Round):** `<1,296> OP_CSV` (`9.0d` — enforces `W_max = 1` active kickoff per lane on L1!) → `RoundTx_{r+1}`.
+      - **Leaf 2 (Clean Retirement):** `<1,440> OP_CSV` (`10.0d`) → **`RetireStakeTx_r`** (returns `2.00 BTC` to `O_j`; spending `Stake_r` **permanently double-spends and kills `RoundTx_{r+1..R}` forever**! The STF forbids unlocking `O_j`'s `B_zbtc` until `RetireStakeTx_r` confirms `K`-deep!).
+      - **Leaf 3 (Bisection Slash):** Immediate → `DisproveTx_{r,i}` / `TimeoutSlashTx_{r,i}` (**MUST spend BOTH `vin[0] = Stake_r` AND `vin[1] = VaultConnector_r`!**) paying **`0.15 BTC`** directly on L1 to winning verifier `P_{V_i}` and burning **`1.85 BTC` to `OP_RETURN`**.
+      - **Leaf 4 (256-Leaf Lamport Equivocation Slash, Depth 8, Pre-Signed at `t = 0`):** Leaf `k ∈ [0..255]` verifies `OP_HASH160 <H_{k,0}> OP_EQUALVERIFY OP_HASH160 <H_{k,1}> OP_EQUALVERIFY <Q_lane_{j,l}> OP_CHECKSIG` → `BurnBondTx_{r,k}` (`~200 vB` TRUC v3, spends `Stake_r` alone) burning **`100%` of `2.00 BTC` `Bond_BTC` to `OP_RETURN`**.
+    - **`Out 1 = VaultConnector_r` (`546` sats):** `<1,152> OP_CSV` (`8.0d` > `max_dispute_end = 1,104` blks!) → **ONE single `TakeTx_{d,j,l,r}`** (OR spent immediately as `vin[1]` of `DisproveTx_{r,i}`/`TimeoutSlashTx_{r,i}`, guaranteeing **`0` satoshis stolen from `U_d`** on any bisection slash!).
+    - **`Out 2..8 = VerifierSlot_1..7` (`546` sats each):** **Simultaneous non-staggered `[0, 144]` block challenge window** — ALL `N = 7` slots open at block `0` (`<P_{V_i}> OP_CHECKSIG`) and expire at `<144> OP_CSV` (`24h`). Colluding `V_1` can NEVER delay honest `V_2..V_7` past `T_take` or `T_cooldown`!
+    - **`Out 9 = 0`-sat `P2A` Ephemeral Anchor** (`0x51024e73`).
+
+### 3.2 `n = 8` `BitVMX-CPU` (`RV32IM`) Interactive Bisection & 100% BIP-431 TRUC v3 Compliance
+
+The disputed computation is a compact Rollup proof verifier compiled from standard **Rust → `RV32IM`** (`≤ 2^27 = 134,217,728` RISC-V instructions) using open-source `BitVMX-CPU` / `BitVMX-protocol`:
+
+- **`n = 8` Search Branching (`3` bits/round, `7 × 20 B` `OP_HASH160` Intermediate Trace Hashes):**
+  - W-OTS cost per prover search tx: `7` hashes × `43` digits (`40` data nibbles + `3` checksum nibbles per 20-byte hash) = **`301` W-OTS digits** × `95.5 WU/digit` = **`28,746 WU`** (`7,186.5 vB`) + `~250 vB` tx overhead **`≈ 7,437 vB (7.44 kvB) ≤ 10,000 vB` (100% BIP-431 TRUC v3!)**.
+  - Search depth: `ceil(27 / 3) = 9` search rounds (`9` prover txs + `9` verifier 3-bit interval choice txs) + `1` Start/Read (`~3.0 kvB` prover) + `1` Final Trace (`~5.0 kvB` prover) / Execute-1-RISC-V-Opcode (`~8.0 kvB` verifier) = **`20` sequential steps**.
+  - **Total worst-case dispute weights:**
+    - **Prover (`O_j`):** `9 × 7.44 + 3.0 + 5.0 = 74.96 ≈ 75 kvB`.
+    - **Verifier (`V_i`):** `Challenge (0.35) + 9 × 0.35 (3.15) + Execute/Disprove (8.0) = 11.5 kvB` (conservatively budgeted at **`15 kvB`**).
+- **Exact Timelock Ordering (`T_step = 48` blocks = `8h`/step):**
+  ```text
+  Challenge Window [0, 144] (24h)
+    → Max Dispute End: 144 + (20 * 48) = 1,104 blocks (7.67 days)
+    → VaultConnector_r (T_take):         1,152 blocks (8.00 days)  [+48 blk margin]
+    → Stake_r -> RoundTx_{r+1} (T_cool): 1,296 blocks (9.00 days)  [+144 blk post-TakeTx equivocation margin]
+    → RetireStakeTx_r:                   1,440 blocks (10.00 days) [+144 blk retirement margin]
+  ```
+- **BIP-431 TRUC v3 (`nVersion = 3`) & `P2A` Audit:**
+  - Every pre-signed tx is `≤ 10,000 vB` (`RoundTx_r` ~`1.8 kvB`, `TakeTx` ~`3.1 kvB`, Prover search tx `7.44 kvB`, Execute-1-Opcode `≤ 8.0 kvB`, Verifier choice/Slash/Burn `~0.2–0.5 kvB`).
+  - Every sequential step spends **confirmed** parent outputs (`ancestor_count = 1`); `ChallengeTx` is fee-funded directly via verifier's `vin[1]` (`descendant_count = 1`); all other pre-signed txs use ONE `~160 vB ≤ 1,000 vB` CPFP child via `0`-sat `P2A` (`descendant_count = 2`). **100% BIP-431 TRUC v3 compliant — zero pre-signed fee cliffs!**
+- **Honest Fee-Rate Design Envelope (`500 sat/vB` Sustained Across ALL `20` Steps):**
+  - Prover worst-case fee @ `500 sat/vB`: `75,000 × 500 = 37,500,000` sats (`0.375 BTC`) ≤ **`F_chal = 0.40 BTC`** (exact break-even **`533 sat/vB`** sustained across all `10` prover txs!).
+  - Verifier worst-case fee @ `500 sat/vB`: `15,000 × 500 = 7,500,000` sats (`0.075 BTC`; `0.15 BTC` @ `1,000 sat/vB`).
+
+### 3.3 256-Bit Lamport `TakeTx` Leaf (Zero `ReimburseEscrow`, Zero `RecoveryVault`)
+
+At deposit `d`, `U_d`'s Tapscript leaf for `(j, l, r)` verifies `L_{j,l,r}(SHA256(outpoint_d))` directly inside `TakeTx_{d,j,l,r}` (`vin[0] = U_d`, `vin[1] = VaultConnector_r`, `vout[0] = D_d → P_{O_j}`, `vout[1] = 0`-sat `P2A`):
+```text
+# 256 iterations (k = 0..255, b_k = bit k of SHA256(outpoint_d)):
+OP_HASH160 <H_{k, b_k}> OP_EQUALVERIFY
+...
+<Q_setup_d> OP_CHECKSIG
+```
+- **Exact BIP-342 & TRUC v3 Weights:**
+  - Tapscript size: `256 × 23 + 34 = 5,922 B`.
+  - Preimages in witness: `256 × 21 = 5,376 B`.
+  - Control block: **`321 B`** (depth 9 for `320` leaves at Stage 1A `M = 5, R = 64`) or **`417 B`** (depth 12 for `2,560` leaves at Stage 2 `40` lanes × `64`).
+  - Peak stack elements: **`258 << 1,000`** BIP-342 limit.
+  - Total `TakeTx` weight: `~3,071–3,095 vB` (+ `VaultConnector_r` `~100 vB` ≈ **`~3,170–3,200 vB ≤ 10,000 vB` TRUC v3**).
+- **Equivocation Solvency:** If `O_j` committed `U_1` in `RoundTx_r`, passed `T_take = 1,152`, and broadcast `TakeTx` on `U_2 ≠ U_1`, `O_j` MUST reveal both preimages for `~128` differing bits `k`, letting any `1-of-∞` challenger execute `BurnBondTx_{r,k}` on `Stake_r` Leaf 4 during `[1,152, 1,296]` (`144`-blk window). `100%` of `2.00 BTC` `Bond_BTC` burns to `OP_RETURN`, and the STARK burns `D_d` (`≤ 0.50 BTC`) from `O_j`'s `B_zbtc` (`0.60 BTC`) + pays `0.05 BTC` equivocation bounty — keeping remaining `zBTC` **100% 1:1 solvent (`0` user loss)**.
 
 ---
 
-## 5. Permanent Failure & Wind-Down Plan (All 11 Items)
+## 4. Front-Run-Proof, Collusion-Resistant Verifier Economics (`H-4` Closed)
 
-1. **Impairment Triggers**: Confirmed unauthorized vault spend (SMT-verified raw sweep on `ACTIVE`/`RELEASED`/`QUARANTINED` OR expired `PENDING_TRAP` via `0x0F`), `> K` reorg orphaning admitted event, `SubmitInvalidCertProof` / `SubmitEquivocationProof` firing, sustained fee `> 500 sat/vB` for `> 72` blocks or sustained slow Bitcoin blocks `> 1.476x` nominal (`R6-L8`) or Reserve `< 7 days` burn, missed generation rotation past `T_kickoff_cutoff + 60h`, or `100%` of operators offline `> 144` blocks.
-2. **Pause Scope & Prohibitions**: Freeze dispatch (`RelayClaim`) + stop `RolloverTx` signing; keep `SubmitInput`, `SubmitBatch`, `Challenge*`, `FinalizeBatch`, and `RequestPegOut` OPEN. Never fabricate `RELEASED`/`REFUNDED`, reset replay, or add custodial sweep keys.
-3. **Reproducible Incident Snapshot (U-14)**: `H_pause`, `StateRoot`, `B/R/P`, `PENDING PegOutRecords`, `VaultUtxoSet` (incl. `PENDING_TRAP`, `QUARANTINED`, `ORPHANED`), `ProcessedClaim`, `ProcessedForeignEvent`, destination replay keys, BTC tip, Reserve balance.
-4. **Recovery & Explicit Exclusions (C-07)**: Zero custodial sweep leaf. Surviving operators continue redeeming vaults graphed into reachable fresh rounds (`G-21`). Vaults whose operators permanently lose keys or miss rotation before `T_kill_expiry` enter Wind-Down Allocation (#8).
-5. **Component Loss**: Loss of `>= 1` `Q_graph` member stops new rollovers, rotations, and recovery re-graphing; existing vaults remain redeemable through reachable active rounds prior to `T_kickoff_cutoff`. Executor loss recovered permissionlessly.
-6. **`PENDING` & Supply Treatment**: Resolve strictly via `FOREIGN_RELEASE` or `FOREIGN_NON_DELIVERY`; `RequestPegOut` stays open during `DRAINING`.
-7. **Redemption Priority & M0**: FIFO while healthy; immediate **M0** downgrade on any trigger.
-8. **Shortfall Allocation**: Voluntary audited Wind-Down Claim Contract distributing verified remaining reserves (and Governance-released `ORPHANED` vaults) pro-rata; zero silent socialization.
-9. **Public Reporting**: Machine-readable Proof-of-Reserves within `6h` of pause and every `24h`.
-10. **Retirement**: Complete ONLY when `P == 0`, `R == 0`, `B == 0`, and all replay sets permanently retained.
-11. **Stage 0C Signet Drills (`G-1`, `G-2`, `G-22`, `G-23`)**: Publish Signet txids, 1p1c package-relay logs, & measured weights (incl. Leaf-3B SHA-256 script size `<= 380 kWU`, peak stack `<= 1,000`, and GPU prover time `<= 15 min`) for 2-in rollover, `RoundKickoffTx`, `RoundRetireTx`, staggered `StaleConnB/CKillTx` (`56d`) & `StaleChainBurnTx` (`58d`), `Take1Tx`+CPFP, `ChallengeTx`→`AssertCertDATx`+`AssertChunk`→`Take2Tx`+CPFP (BOTH 1-cert zero-handoff-slot AND 2-cert — `R6-M1`), `DisproveTx` (incl. Leaf-3B SHA-256), `BurnBond*Tx`, `WrongDepositDisproveTx^{T1,T2}`, and MUST-fail vectors (standalone connector/trap spend, Take2 substitution, spend proof omitting inclusion proof on registered Take ⇒ rejected/no halt, rotated gen-`g+1` Take ⇒ `PENDING_TRAP`, kickoff past `T_kill_expiry`, **forward-hashed digit on an honest Leaf-3B block ⇒ rejected (`R6-H2`)**, double-claim, wrong-epoch reimbursement claim).
+Every `ChallengeTx_{r,i}` opened by Verifier `V_i` during `[0, 144]` locks **`F_chal = 0.40 BTC`** in **`ChalEscrow_{r,i}`** (NOT sent to `O_j` upfront!) and appends `41 B` `OP_RETURN "ZBTX" || 0x04 || kickoffTxid || verifierAcctId_i`:
+- `ChalEscrow_{r,i}` pays `0.40 BTC` to `O_j` **ONLY IF** `O_j` wins `Dispute_i` (covering full `75 kvB` honest prover fees up to `533 sat/vB`); otherwise `V_i` reclaims `100%` of `0.40 BTC` cleanly.
+- Each operator lane locks **`B_zbtc = 0.60 BTC`** inside canonical Rollup state (`0.50 BTC` vault restitution / challenger-split slice + `0.05 BTC` equivocation bounty = **`0.55 BTC` hard custody floor**, PLUS **`0.05 BTC` dedicated `ExitSlotUTXO` grief buffer**).
+
+**Bisection Slash Matrix (`k_collude ∈ {0..6}` of `N = 7` Verifiers Colluding with Cheating `O_j` @ `500 sat/vB`):**
+Because `DisproveTx_{r,*}` / `TimeoutSlashTx_{r,*}` spends **BOTH `Stake_r` AND `VaultConnector_r`**, **`0` BTC is stolen from `U_d`** — freeing `O_j`'s entire `0.55 BTC` custody slice of `B_zbtc` to split equally across all other `k ≤ 6` challengers (`0x04` opened in `[0, 144]`):
+
+| Colluding Verifiers (`k_collude`) | Vault Stolen | Winning Verifier L1 Payout (`Stake_r`) | `Bond_BTC` Burned | Each Other Honest Challenger (`B_zbtc` Split) | Honest Verifier Net EV (@ `500 sat/vB`, `0.075` fee) | Combined `(O_j + k_collude)` Net P&L |
+|---|---|---|---|---|---|---|
+| `0` (all honest) | `0.00 BTC` | `0.15 BTC` (to honest winner) | `1.85 BTC` | `≥ 0.0917 BTC` (`0.55 / 6`) | **`+0.075 BTC`** (winner) / **`≥ +0.0167 BTC`** (others) | **`-2.55 BTC`** (`-2.00 - 0.55`) |
+| `1` (`V_1` throws & steals L1 payout) | `0.00 BTC` | `0.15 BTC` (to `V_1`) | `1.85 BTC` | **`0.0917 BTC`** (`0.55 / 6` each to `V_2..V_7`) | **`+0.0167 BTC`** (EVERY honest `V_2..V_7`!) | **`-2.40 BTC`** |
+| `6` (worst case: ONLY `V_7` honest; `V_1` wins L1, `V_2..V_6` also claim `0x04`) | `0.00 BTC` | `0.15 BTC` (to `V_1`) | `1.85 BTC` | **`0.0917 BTC`** (`0.55 / 6` to `V_7`) | **`+0.0167 BTC`** (`V_7` still strictly profitable!) | **`-1.9417 BTC`** (`-1.85 - 0.0917`) |
+
+*Notice: Even if `6 of 7` verifiers collude with `O_j`, the lone honest verifier `V_7` recovers `100%` of `F_chal`, nets `≥ +0.0167 BTC` at `500 sat/vB`, and the attacker/colluding cartel suffers `-1.94` to `-2.55 BTC` net loss (`-2.55 BTC` solo; `-2.40` to `-1.9417 BTC` with `1..6` colluders) with `0` sats stolen from users!*
+
+---
+
+## 5. Atomic `(2M + 1)`-Leaf `ExitSlotUTXO` (Zero Double-Fronting, Zero Grief Freeze)
+
+Every Stage 1A exit — both hostile L1 `0x01 FORCED_EXIT` (created by Mike/Bob) and cooperative `0x02 BATCH_DA` exits (created by batcher) — outputs a **`546`-sat `ExitSlotUTXO`** (P2TR, unspendable `H_NUMS` internal key) with **`2M + 1` Tapscript leaves** (zero anonymous `OP_TRUE` leaves!):
+- **Leaves `0 .. M-1` (Deterministic Priority Windows):** `<6*r> OP_CSV OP_DROP <P_{O_{k_r}}> OP_CHECKSIG` where `k_r = H(exitId || r) mod M`.
+- **Leaves `M .. 2M-1` (Registered Open Race After `6*M` Blocks):** `<6*M> OP_CSV OP_DROP <P_{O_j}> OP_CHECKSIG` for each registered operator `O_j` (depth 4 for `M = 5`, `11` leaves; depth 6 for `M = 20`, `41` leaves).
+- **Leaf `2M` (`EXIT_CANCEL`):** `<288> OP_CSV OP_DROP <cancelPubKey> OP_CHECKSIG` (`288 > 6*M` blks).
+
+**Universal STARK Spend-or-Refund Rule (`K`-deep spend of `ExitSlotUTXO`):**
+1. **Valid Fronting (Leaf `0..2M-1` AND `vout[0] == (destScriptPubKey, ≥ grossSats - f_op)`):** Exit marked `COMPLETED`; `ReimbursementCredit[O_j] += grossSats`. Bitcoin L1 UTXO exclusion makes double-fronting and refund-vs-front races (`M-8`) cryptographically impossible.
+2. **Non-Paying Operator Grief Spend (Leaf `0..2M-1` AND `vout[0]` fails payout check):** STARK **atomically cancels exit, refunds full `grossSats` `zBTC` to user, slashes `0.01 BTC` grief penalty from `O_j`'s `0.05 BTC` grief buffer to user, and auto-suspends `O_j`** until `B_zbtc` is topped back up to `≥ 0.60 BTC` (protecting the `0.55 BTC` custody floor).
+3. **User Cancel (Leaf `2M`) or Fee Bump (`0x06 EXIT_FEE_BUMP`):** `0x06` raises `f_op` in-place during fee spikes; Leaf `2M` cleanly refunds `grossSats` `zBTC` after `288` blks unfronted.
+
+---
+
+## 6. Stage 1A Bootstrap Capital, Throughput, Finite-Round Cap & Bank-Run Bounds
+
+Every parameter below is verified in [`scripts/verify_spec_bounds.py`](../scripts/verify_spec_bounds.py):
+
+| Configuration (`L = 1`, `N = 7`, `R = 64`, `K = 14`, `T_cooldown = 9.0d`) | Per-Lane Bond (`Bond_BTC + B_zbtc`) | Total Op Bonds | Op Fronting Float | Verifier Standby (`7 × 0.40`) | **Total Hard BTC Capital** (`%` of `25–33 BTC` ZNN MCap) | Recycling Rate (`{0.50, 0.25, 0.25}` avg `0.333 BTC`) | **100% Bank-Run Exit Duration** (`{0.50, 0.25, 0.25}` / `{0.50, 0.50}`) |
+|---|---|---|---|---|---|---|---|
+| **Bare-Minimum Pilot (`M = 3`, `Cap_TVL ≤ 10 BTC`)** | `2.60 BTC` (`2.00 + 0.60`) | `7.80 BTC` | `2.20 BTC` | `2.80 BTC` | **`12.80 BTC`** (`~39–51%`) | `0.333` vaults/d (**`0.111 BTC/d`**) | `2.20 BTC` in ~10m + `7.80 BTC` in **`~72 days`** (`~47d` w/ `{0.50, 0.50}`) |
+| **Recommended Stage 1A Pilot (`M = 5`, `Cap_TVL ≤ 15 BTC`)** | `2.60 BTC` (`2.00 + 0.60`) | `13.00 BTC` | `3.00 BTC` | `2.80 BTC` | **`18.80 BTC`** (`~57–75%`) | `0.556` vaults/d (**`0.185 BTC/d`**) | `3.00 BTC` in ~10m + `12.00 BTC` in **`~65 days`** (`~43d` w/ `{0.50, 0.50}`) |
+| **Stage 2 Scaled (`M = 20, L = 2`, `Cap_TVL ≤ 50–200 BTC`, `K = 36–144`)** | `2.60 BTC` | `104.0 BTC` | `16.0 BTC` | `2.80 BTC` | `122.8 BTC` | `4.444` vaults/d (**`1.481 BTC/d`**) | `16 BTC` in ~10m + `34 BTC` in `~23d` (for `50 BTC` TVL) |
+
+- **Finite-Round Admission Cap & FIFO Drainage:** New deposits are admitted only while `N_live_vaults ≤ 0.50 × RemainingTotalRounds` (`≤ 160` live vaults for `M = 5, R = 64` = `320` total slots; `160 × 0.333 = 53.3 BTC > 15 BTC` cap). Strict **FIFO oldest-vault-first** assignment (filtered by `opBitmask`) drains oldest vaults first and naturally prevents multi-year difficulty staleness.
+- **Zero Passive-Timeout Slash:** Once `U_d` is assigned to `O_j` (after `O_j` ALREADY fronted BTC to Mike!), remaining unassigned vaults equal remaining `zBTC` 1:1 even if `O_j` vanishes forever. Assigned vaults NEVER passively expire into a slashable state (eliminating withholding-miner slash attacks); only explicit `O_j`-signed `0x07 RELEASE_ASSIGNMENT` releases an assignment.
+- **Maturity & Engineering Reality:** `BitVMX-CPU` / `BitVMX-protocol` is **pre-mainnet** today. Production delivery (stripped-block STARK + `RV32IM` verifier + `StakeChain` ceremony + `ExitSlotUTXO` + third-party audit) is realistically **`12–18+ months`** for 4–6 strong engineers.
+
+---
+
+## 7. Stage 1B Explicit Alternative Gate: `clArk` (Covenant-Free Ark VTXOs)
+
+If a young project **cannot commit `~12.8–18.8 BTC` of non-yielding hard BTC** (e.g. `< 5–10 BTC` budget) OR requires mainnet launch in **`3–6 months`** OR prioritizes `0-of-N` post-round unilateral exit over pooled fungibility, **do NOT under-bond `BitVMX`/`BitVM2`** — adopt Stage 1B **`clArk`** (`Second bark` / `Ark Labs arkd` + Zenon SPV/PTLC coordination):
+- **Bootstrap Capital:** **`2–5 BTC`** active ASP liquidity (`0` slashing bonds; round turnover capped by ASP liquidity per 14–30 day VTXO expiry cycle).
+- **Bob & Mike Security Model:**
+  - **Post-L1-round (after `P_Bob`/`P_Mike` confirms in an Ark VTXO tree):** **Pure `0-of-N` unilateral exit** (zero ASP, zero Zenon signers!) by broadcasting `log2(N)` pre-signed tree-branch transactions (`N = 64 → 6` txs; `N = 1,024 → 10` txs) prior to VTXO expiry.
+  - **Explicit Compromises Relinquished:** (1) **No pooled fungible `zBTC` token** (discrete VTXOs; exiting `0.25 BTC` unilaterally from a `2.0 BTC` VTXO requires exiting the entire `2.0 BTC` VTXO on-chain unless pre-split in-round); (2) **Pre-round `arkoor` transfers trust the ASP not to collude with sender `Alice`/`Bob`**; (3) **Hard VTXO expiry** forces Mike online to refresh or pay `log2(N)` L1 branch fees (small VTXOs become uneconomical during fee spikes).
+
+---
+
+## Appendix A: Non-Normative Future Tracks — Track B Pure Tier-0 Bitcoin Soft-Fork Covenant & Track A1/A2 Reference
+
+> **Status: NON-NORMATIVE.** Nothing in `v1` depends on Bitcoin soft forks or BitVM2/BitVM3.
+
+### A.1 Track B: Pure Tier-0 (`0-of-N` Safety AND `0-of-N` Liveness) With Minimal Bitcoin Soft Fork
+
+If Bitcoin activates a stateful covenant soft fork, a **clean non-commingled `zBTC_v2`** eliminates ALL presigning committees, ALL operators, ALL verifiers, ALL bonds, and ALL bank-run delays:
+
+- **Direct L1 Pooled Covenant Custody (`U_vault(R_t, V_t)` — Zero Header Scanning!):**
+  - Internal key = provably unspendable `H_NUMS`. **Every custody transition spends `vin[0] = U_vault(R_t, V_t)` directly on Bitcoin L1**, so Bitcoin consensus natively enforces exact BTC inputs/outputs and canonical UTXO ordering (zero private-fork/orphaned-block drain; no `OP_BLOCKHASH` needed for custody!):
+    1. **Deposits:** Depositor's `DepositInboxUTXO(acctHash, <144> OP_CSV refund)` is spent directly as `vin[1..d]` of `T`; covenant verifies `V_out0 = V_in0 + sum(V_in_dep) - sum(V_out_exit)` (miner fee paid strictly by external fee input!).
+    2. **Feeless Zenon Batches:** Complete mutated-leaf state diffs + transparent STARK `π_STF` live directly in `T`'s witness (zero CRS).
+    3. **Mike's Direct Unilateral `0.25 BTC` Exit (`0` Signers, `0` Operators, `0` LPs):** Mike spends `vin[0] = U_vault(R_t, 2.0 BTC)` + `vin[1] = Mike_fee_UTXO` → `vout[0] = U_vault(R_{t+1}, 1.75 BTC)` + `vout[1] = 0.25 BTC → P_Mike` + fee change in **1 Bitcoin block (~10m)**.
+- **Two Concrete Minimal Soft-Fork Primitives:**
+  - **Path B1 (`OP_CCV` BIP-443 + `OP_TXHASH` + `OP_VERIFY_STARK`):** Single `~1–3 kvB` L1 tx, instant 1-block finality, zero challengers.
+  - **Path B2 (`OP_CAT` BIP-347 Alone):** Poelstra Schnorr-trick sighash introspection enforcing recursive state-carry + value conservation, paired with either chained in-Script Circle-STARK (`~40–100 kvB` witness, 0 challengers) OR `OP_CAT`-MATT optimistic bisection (`~500 vB` happy path, `~5–20 kvB` on dispute, `0` committees/operators, `1-of-∞` safety).
+- **UTXO Contention Handling:** Track B-Base enforces `<1> OP_CSV` (`nSequence ≥ 1`, max 1 spend/block) + native Bitcoin RBF fee-market priority (zero `OP_BLOCKHASH`). Optional **Track B+** additionally adds `OP_BLOCKHASH` if an external `OP_RETURN` mandatory forced-exit queue (`D_force = 6` blks) without RBF bidding against batchers is desired.
+
+### A.2 High-Capital / Research Reference (`BitVM2` & `BitVM3-GC`)
+
+- **Scaled `BitVM2` (`1-of-∞` Permissionless Challenger, Zero Soft Fork):** Viable only once `≥ 50–100+ BTC` (minimal `M=3–5`) or `532–1,454 BTC` (`40–80` lanes) of operator capital is available (`13.30–18.175 BTC`/lane at `~1.0–1.3M vB` Groth16 asserts, `nVersion = 2` non-TRUC large txs, `≤ 500 sat/vB` fee ceiling).
+- **Future `BitVM3-GC` (Garbled-Circuit SNARK, `1-of-N` Online Verifier):** Shrinks on-chain assert to `~2.4–10 kvB` and disprove to `~0.1–1.0 kvB` (`F_assert ≈ 0.20 BTC` even at `2,000 sat/vB`, `2.10 BTC`/lane), but one-time-use multi-GB (`1–5 GB`) garbled circuits currently require tens–hundreds of TB across `M × L × R × N` rounds until **reusable DV-SNARK garbled circuits** mature past early research.

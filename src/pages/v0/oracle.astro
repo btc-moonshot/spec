@@ -1,0 +1,42 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import SpecShell from '../../components/SpecShell.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const scriptSrc = fs.readFileSync(path.join(process.cwd(), 'versions/v0/scripts/verify_spec_bounds.py'), 'utf-8');
+const oracleOutput = fs.readFileSync(path.join(process.cwd(), 'public/raw/v0/oracle-output.txt'), 'utf-8');
+
+const toc = [
+  { id: 'verified-output', label: 'Archived Output (v0 / v2.5.0-rfc)', level: 2 as const },
+  { id: 'oracle-source', label: 'Archived Source (v0 verify_spec_bounds.py)', level: 2 as const },
+];
+---
+
+<SpecShell
+  activeKey="oracle"
+  version="v0"
+  title="Executable Bounds Oracle (Archived v0)"
+  pageTitle="Bounds Oracle — Archived v0 (v2.5.0-rfc)"
+  description="Archived v0 (v2.5.0-rfc) bounds oracle script frozen byte-for-byte from commit 7b47b8c."
+  pathSlug="v0/oracle/"
+  canonicalSlug="oracle/"
+  rawPath="raw/v0/scripts/verify_spec_bounds.py"
+  dek="Archived byte-for-byte v0 bounds oracle (v2.5.0-rfc, commit 7b47b8c) — superseded by v1's consistency & bounds checker."
+  toc={toc}
+  prev={{ label: 'Part 5 (v0): go-zenon Node Upgrade Plan', href: `${base}v0/part-05/` }}
+  next={{ label: 'Changelog (v0 → v1)', href: `${base}changelog/` }}
+>
+  <p>
+    Download archived source: <a href={`${base}raw/v0/scripts/verify_spec_bounds.py`}>v0/verify_spec_bounds.py</a> ·
+    <a href={`${base}raw/v0/oracle-output.txt`}>v0/oracle-output.txt</a> ·
+    <a href={`${base}raw/v0/SHA256SUMS.txt`}>v0/SHA256SUMS.txt</a> ·
+    <a href={`${base}oracle/?diff=1`}>compare v1 vs v0</a>.
+  </p>
+
+  <h2 id="verified-output">Archived Output (v0 / v2.5.0-rfc)</h2>
+  <pre><code>{oracleOutput}</code></pre>
+
+  <h2 id="oracle-source">Archived Source (v0 verify_spec_bounds.py)</h2>
+  <pre><code>{scriptSrc}</code></pre>
+</SpecShell>

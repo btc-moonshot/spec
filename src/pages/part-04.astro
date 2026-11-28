@@ -1,20 +1,24 @@
 ---
 import SpecShell from '../components/SpecShell.astro';
-import { renderSpecFile } from '../lib/spec';
+import { buildV1ToV0Diff, renderSpecFile } from '../lib/spec';
 
-const spec = renderSpecFile('spec/04-bitcoin-anchoring-and-light-client.md');
+const rel = 'spec/04-bitcoin-anchoring-and-light-client.md';
+const spec = renderSpecFile(rel, 'v1');
+const diffBundle = buildV1ToV0Diff(rel);
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <SpecShell
   activeKey="part-04"
+  version="v1"
   title={spec.title}
-  description="Part 4: Dual-bounded Bitcoin history anchoring, proof-format.md V1 SMT state proofs, 30-day BLS12-381 FinalityCommitteeRoot, historical-root full-preimage slashing, 72-day post-service lock, and anti-frontier boundary."
+  description="Part 4: Code-grounded proof of Zenon 49% DPoS and >33.3% BFT failure bounds, the inverted Bitcoin-L1-first trust hierarchy (0-of-N Zenon trust surviving 49%-100% Zenon compromise), and optional non-custodial light-client infrastructure."
   pathSlug="part-04/"
-  rawPath="raw/spec/04-bitcoin-anchoring-and-light-client.md"
+  rawPath={`raw/${rel}`}
   toc={spec.toc}
-  prev={{ label: 'Part 3: Settlement Contract, zBTC & Peg-Free Rails', href: `${base}part-03/` }}
-  next={{ label: 'Part 5: Detailed go-zenon Node Upgrade Plan', href: `${base}part-05/` }}
+  diffBundle={diffBundle}
+  prev={{ label: 'Part 3: Sovereign Rollup STF, Feeless Zenon Sequencer & PTLC/LN Rails', href: `${base}part-03/` }}
+  next={{ label: 'Part 5: go-zenon Prerequisites & Zero-Hard-Fork Custody Plan', href: `${base}part-05/` }}
 >
   <div class="spec-body" set:html={spec.html} />
 </SpecShell>

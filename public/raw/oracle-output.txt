@@ -1,75 +1,66 @@
-=== 1. FIELD-DERIVED STRUCTS & ADVERSARIAL DEPTH-256 WITNESS BOUNDS ===
-  Structs: ChainMeta=238B, HeaderNode=160B, ActiveHeight=68B, PegOutState=190B, TxStream=175B, TrackedVault=78B, OpBond=52B, RecoveredVault=44B, StepTraceLeaf=328B
-  [HARD WORST CASE] Single proof at MAX depth 256 (val=238B): 8533 B | UploadWitnessProof ABI = 8676 B (cap 16384 B)
+================================================================================
+zBTC v1 (v3.0.0-rfc) ZERO-FEDERATION CONSISTENCY & BOUNDS CHECKER
+Note: Checks internal mathematical consistency against SOURCED_, POLICY_, and
+      PRE_MAINNET_TARGET_ inputs. Not an empirical Signet benchmark or audit.
+================================================================================
 
-=== 2. 1-TX FAST-PATH CHALLENGE ABI (17 Tags, sib=26 typical; Multi-Tx handles sib=256!) ===
-  0x00 BTC_HEADER_BATCH (max=2 headers)                         : fast_ABI= 7140 B (<=12KiB: True)
-  0x01 BTC_REORG_STEP (1 step)                                  : fast_ABI= 6340 B (<=12KiB: True)
-  0x02 BTC_PRUNE_STEP (max=2 stale HeaderNodes)                 : fast_ABI= 4388 B (<=12KiB: True)
-  0x03 PEGOUT_CREATED (system input)                            : fast_ABI= 3108 B (<=12KiB: True)
-  0x04 BTC_TX_STREAM_CHUNK (<= 8 KiB chunk)                     : fast_ABI= 3300 B (<=12KiB: True)
-  0x05 BTC_LOCK_PROOF (9 keys + 64B CommSig + takeSmtRoot)      : fast_ABI=10180 B (<=12KiB: True)
-  0x06 BTC_RELEASE_PROOF (9 keys: incl. RecognizedBindings)     : fast_ABI=10212 B (<=12KiB: True)
-  0x07 BTC_NON_DELIVERY_PROOF (5 keys)                          : fast_ABI= 6212 B (<=12KiB: True)
-  0x08 BTC_VAULT_SPEND_PROOF (6 keys, SMT absence/inclusion)    : fast_ABI= 7396 B (<=12KiB: True)
-  0x09 BTC_OPERATOR_SLASH_PROOF (7 keys: incl. OpBond)          : fast_ABI= 8292 B (<=12KiB: True)
-  0x0A PEGOUT_SLOT_CLAIMED (system input, non-overwrite)        : fast_ABI= 3300 B (<=12KiB: True)
-  0x0B OPERATOR_ROUND_REGISTERED (auth CommSig)                 : fast_ABI= 3108 B (<=12KiB: True)
-  0x0C BTC_VAULT_RECOVERY_PROOF (10 keys incl. inserts, S6-5)   : fast_ABI=11300 B (<=12KiB: True)
-  0x0D VAULT_GRAPH_EPOCH_ADDED (4 keys incl. inserts, S6-5)     : fast_ABI= 5124 B (<=12KiB: True)
-  0x0E GOVERNANCE_ADD_BINDING (Gov-only RecognizedBindings)     : fast_ABI= 3108 B (<=12KiB: True)
-  0x0F BTC_TRAP_TIMEOUT_HALT (PENDING_TRAP expired -> Halted)   : fast_ABI= 3204 B (<=12KiB: True)
-  0x10 BTC_ROUND_RETIRED (7 keys incl. LaneRetired, S6-5)       : fast_ABI= 8292 B (<=12KiB: True)
-  ChallengeContinuity (2 x 328B leaves + 2 depth-8 proofs)      : ABI= 1700 B
+=== 1. STAGE 0: COINBASE MIDSTATE 1-/2-BLOCK SHA-256 PADDING ===
+  Verified all 64/64 remainders against real hashlib.sha256 double-SHA256: 56 use 1 final block (rem 0..55), 8 use 2 final blocks (rem 56..63 = 12.5% of coinbases); len==64 rejected.
 
-=== 3. INPUT PAYLOAD SIZES & PLASMA COSTS (ZERO 3RD-PARTY SIZE CAPS) ===
-  0x00 BTC_HEADER_BATCH (2 headers)                             : payload=  197 B | ABI=  324 B | plasma=  74260 ( 36 QSR)
-  0x01 BTC_REORG_STEP                                           : payload=    1 B | ABI=  132 B | plasma=  61204 ( 30 QSR)
-  0x02 BTC_PRUNE_STEP (2 stale HeaderNode hashes)               : payload=   65 B | ABI=  196 B | plasma=  65556 ( 32 QSR)
-  0x04 BTC_TX_STREAM_CHUNK (8,192 B chunk)                      : payload= 8234 B | ABI= 8356 B | plasma= 620436 (296 QSR)
-  0x05 BTC_LOCK_PROOF (Dep+Rol+2 streams+CommSig+takeSmt+DA)    : payload= 7633 B | ABI= 7748 B | plasma= 579092 (276 QSR)
-  0x06 BTC_RELEASE_PROOF (Fronting + stream + 2 branches)       : payload= 5242 B | ABI= 5348 B | plasma= 415892 (199 QSR)
-  0x07 BTC_NON_DELIVERY_PROOF                                   : payload=   33 B | ABI=  164 B | plasma=  63380 ( 31 QSR)
-  0x08 BTC_VAULT_SPEND_PROOF (streamed + 2-epoch SMT proof)     : payload= 2142 B | ABI= 2244 B | plasma= 204820 ( 98 QSR)
-  0x09 BTC_OPERATOR_SLASH_PROOF (streamed BondOut burn)         : payload= 1183 B | ABI= 1284 B | plasma= 139540 ( 67 QSR)
-  0x0B OPERATOR_ROUND_REGISTERED (CommSig authenticated)        : payload=  125 B | ABI=  228 B | plasma=  67732 ( 33 QSR)
-  0x0C BTC_VAULT_RECOVERY_PROOF (T1|T2 -> QUARANTINED)          : payload= 1219 B | ABI= 1348 B | plasma= 143892 ( 69 QSR)
-  0x0D VAULT_GRAPH_EPOCH_ADDED (u16 epoch+takeSmt+DA+CommSig)   : payload=  175 B | ABI=  292 B | plasma=  72084 ( 35 QSR)
-  0x0F BTC_TRAP_TIMEOUT_HALT                                    : payload=   37 B | ABI=  164 B | plasma=  63380 ( 31 QSR)
-  0x10 BTC_ROUND_RETIRED (streamed RoundRetireTx + coinbase)    : payload= 1147 B | ABI= 1252 B | plasma= 137364 ( 66 QSR)
+=== 2. STAGE 0: go-zenon THROUGHPUT, SPV ORACLE & DYNAMIC PLASMA PINNING ===
+  Stage 0 SubmitHeaderBatch(1..2 headers)         : payload=  160 B | ABI=  228 B | plasma= 67,732 ( 33 QSR) | ops<= 8 | cblks=1
+  Stage 0 StepReorg()                             : payload=    0 B | ABI=    4 B | plasma= 52,500 ( 25 QSR) | ops<= 6 | cblks=1
+  Stage 0 PruneStaleHeaders(1..2 hashes)          : payload=   64 B | ABI=  132 B | plasma= 61,204 ( 30 QSR) | ops<= 4 | cblks=1
+  Stage 0 ProveTxInclusion(<=6KiB tx + midstate)  : payload= 7279 B | ABI= 7620 B | plasma=591,388 (282 QSR) | ops<= 8 | cblks=1
+  Plasma transfer costs: native=21,000 (10 QSR), 110B rollup tx=28,480 (14 QSR) @ floor 1,000
+  Throughput @ 11.4s/Mom: 2-blk floor(2.1M)=4.4 / default(4.2M)=8.8 tx/s | 1-blk rollup=6.5/12.9 tx/s | REAL 8 MiB ceiling=1,051-1,226 tx/s (vs naive 2.1B=4,386)
+  Contract-block cap @ 2.1M floor=40 | unpinned DP (target=1,denom=1,52 Moms) price mult=109,376x (>100,000x) vs pinned=1x
 
-=== 4A. PER-BLOCK OP_HASH160 W-OTS CERT-DA + LEAF-3B SHA-256 (BLS12-381, 30d, w=4 — R6-H2/M1) ===
-  BLS12-381 min-sig fixed encoding = 204 B x 2 slots = 408 B (1-cert pads slot 2 w/ 0x00^204 -> IDENTICAL 7 blks!)
-  Per-block OP_HASH160 W-OTS: 6x131 + 51 + 6x67 = 1239 digits | AssertCertDA inputs=[393, 444, 402] (<=492) | derived=29,882 vB -> 30 kvB!
-  Leaf-3B disprove stack check (S6-2): max=265 digits (530 elems, 470 free for SHA-256) | total C=1208
+=== 3. STAGE 0: PTLC & LN TIMELOCK SAFETY MARGINS (2.3x SLOW BLOCKS) ===
+  PTLC: CSV=72 blks (Bob confirms <= h_conf+66) | 2.0x=24.0h | 2.3x June-2021 Bob confirm=25.3h < T_znn=30.0h (Alice margin=4.7h; absolute Unix ts = now + 108,000)
 
-=== 4B. EXACT INTEGER-SATOSHI PARAMETRIC BITVM2 ECONOMICS (ASSUMED STAGE 0C TARGETS) ===
-  Parametric F_assert=1.45 BTC (Assert 220 + CertDA 30 + Take2 1 = 251 kvB -> 1.2550 BTC @ 500; break-even=289.0 kvB, +39.0 kvB headroom!)
-  Bond=3.70 BTC | DisproveBurn=1.65 (WMax=2.05) | TimeoutBurn=1.85 (WMax=1.85) | WrongDepBurn=2.70 (WMax=1.00)
-  @  1 sat/vB: UncontestedW(Dis/TO/Sub)=+0.5990/+0.4000/+1.0000 | RealWatcherVsSelfSlash/MEV=-1.4500 | SelfSlashFraud=-0.20/-0.40 | HonestOp=+1.4475 BTC
-  @ 50 sat/vB: UncontestedW(Dis/TO/Sub)=+0.5515/+0.3985/+0.9985 | RealWatcherVsSelfSlash/MEV=-1.4510 | SelfSlashFraud=-0.37/-0.40 | HonestOp=+1.3245 BTC
-  @200 sat/vB: UncontestedW(Dis/TO/Sub)=+0.4060/+0.3940/+0.9940 | RealWatcherVsSelfSlash/MEV=-1.4540 | SelfSlashFraud=-0.89/-0.40 | HonestOp=+0.9480 BTC
-  @500 sat/vB: UncontestedW(Dis/TO/Sub)=+0.1150/+0.3850/+0.9850 | RealWatcherVsSelfSlash/MEV=-1.4600 | SelfSlashFraud=-1.93/-0.41 | HonestOp=+0.1950 BTC
+=== 4. STAGE 1A: THEOREM 2 CAPITAL PROOF (BitVM2 vs RIGHT-SIZED BitVMX) ===
+  BitVMX M=3 (<=10 BTC cap): bonds= 7.80 + float=2.20 + verifiers=2.80 = 12.80 BTC (38.8%-51.2% of 25-33 BTC ZNN mcap)
+  BitVMX M=5 (<=15 BTC cap): bonds=13.00 + float=3.00 + verifiers=2.80 = 18.80 BTC (57.0%-75.2% of 25-33 BTC ZNN mcap)
+  BitVM2 contrast (M=3..5, L=1, bonds only): 39.90-90.875 BTC (>100%-275%+ of ZNN mcap before fronting float!)
 
-=== 4C. PRE-SIGNED TX FEE-SOURCE VERIFICATION @ 500 sat/vB ===
-  RolloverTx_d                : max_fee@500=0.00500 BTC < budget 0.50 BTC (Mandatory Ops Reserve In1 + CPFP)
-  RoundKickoffTx_{m,l,r}      : max_fee@500=0.01000 BTC < budget 0.10 BTC (Out 3 <pk_m> 330-sat CPFP anchor)
-  RoundRetireTx_{m,l,r}       : max_fee@500=0.00500 BTC < budget 0.05 BTC (99,670-sat base + Out 1 <pk_m> CPFP)
-  Take1Tx_{d,m,l,r}           : max_fee@500=0.00500 BTC < budget 0.05 BTC (1,330-sat base + Out 2 <pk_m> CPFP)
-  Assert+CertDA+Take2 [JOINT] : max_fee@500=1.25500 BTC < budget 1.45 BTC (Per-tx <pk_m> CPFP funded JOINTLY by F_assert)
-  ChallengeTx_{m,l,r}         : max_fee@500=0.01000 BTC < budget 0.10 BTC (Watcher funding In 1+)
-  BurnBond* / StaleChainBurn  : max_fee@500=0.00500 BTC < budget 1.85 BTC (Deducted from Out 1 watcher payout (1.85 BTC))
-  DisproveTx_{m,l,r,c}        : max_fee@500=0.47500 BTC < budget 2.05 BTC (Deducted from Out 1 watcher payout (2.05 BTC))
-  WrongDepositDisprove^{T1,T2}: max_fee@500=0.01500 BTC < budget 1.00 BTC (Deducted from Out 2 watcher payout (1.00 BTC))
+=== 5. STAGE 1A: BitVMX-CPU n=8 BISECTION & BIP-431 TRUC v3 COMPLIANCE ===
+  n=8 bisection: 7 hashes x 43 digits = 301 digits = 28,746 WU (7,186.5 vB) + 250 = 7,436.5 vB <= 10,000 vB TRUC v3 (rejected n=16 = 15,650 vB > 10,000 vB)
+  9 rounds -> 8^9 = 2^27 = 134,217,728 RV32IM ops | 20 sequential steps | Prover=74,928.5 vB (~75 kvB; 0.375 BTC <= F_chal=0.40 BTC @ 500 sat/vB, break-even=533 sat/vB) | Verifier=11,500 vB (cap 15 kvB; 0.075 BTC @ 500 sat/vB)
 
-=== 4D. STAGGERED CLTV, LATENCY-AWARE REACHABILITY, RESERVATIONS & G-21 TIMELINE (R6-M2/L8/L9, S6-4) ===
-  Lifecycle: R=8 (44d) <= cutoff 46d < KillCLTV 56d < BondBurnCLTV 58d (retire buffer 6.5d=936 blks; slow-blk tol 1.476x/1.591x)
-  Reachability (+3d horizon, R6-M2): day0->8, day44.5+3d->0, reserved2@day40->0, retired->0
-  180d Sim (S6-4/R6-L9): max_concurrent_gens=2 (37.0 steady / 74.0 peak, 8-28d overlap) | pre-epoch G-21 DeferQueue window=5.0d/30d (min cap=30>=15!)
-  U2 Post-Service Pillar Lock = 72d >= 58d + 14d | Watcher Cap = 1.46/14.60 BTC | OpBond = 31,500 ZNN | SlotBond = 500 ZNN
+=== 6. STAGE 1A: TIMELOCK ORDERING & 256-BIT LAMPORT TakeTx BIP-342/TRUC BOUNDS ===
+  Timelocks: chal=[0,144] | max_dispute=1104 < T_take=1152 < T_cooldown=1296 < Retire=1440 (144-blk equivocation margin)
+  Lamport TakeTx: script=5,922 B | preimages=5,376 B | CB(depth 9/12)=321/417 B | peak_stack=258 (<1,000) | TakeTx=3,122.8 vB (<=3,200 <=10,000 TRUC v3)
 
-=== 5. TIMING & HALVING-INDEXED K ===
-  Poisson(288)=353 | 60h x 1.10 [ASSUMED] (lam=396)=472 blks | timeout=[tip+640, tip+2512] | grace=558 blks | pendingTrapWindow=230 blks
-  K_pilot=14 >= pre-2028(12), post-2028(13); post-2032 needs binding migration (K>=26) OR cap <=5 BTC (K>=13<=14)
+=== 7. STAGE 1A: COLLUDING-VERIFIER POSITIVE-EV MATRIX (N=7, k_collude=0..6) ===
+  k_collude=0 (honest=7): vault_stolen=0 | honest_EV>=+0.0167 BTC (@500 sat/vB) | combined_attacker_PnL=-2.5500 BTC
+  k_collude=1 (honest=6): vault_stolen=0 | honest_EV>=+0.0167 BTC (@500 sat/vB) | combined_attacker_PnL=-2.4000 BTC
+  k_collude=2 (honest=5): vault_stolen=0 | honest_EV>=+0.0167 BTC (@500 sat/vB) | combined_attacker_PnL=-2.3083 BTC
+  k_collude=3 (honest=4): vault_stolen=0 | honest_EV>=+0.0167 BTC (@500 sat/vB) | combined_attacker_PnL=-2.2167 BTC
+  k_collude=4 (honest=3): vault_stolen=0 | honest_EV>=+0.0167 BTC (@500 sat/vB) | combined_attacker_PnL=-2.1250 BTC
+  k_collude=5 (honest=2): vault_stolen=0 | honest_EV>=+0.0167 BTC (@500 sat/vB) | combined_attacker_PnL=-2.0333 BTC
+  k_collude=6 (honest=1): vault_stolen=0 | honest_EV>=+0.0167 BTC (@500 sat/vB) | combined_attacker_PnL=-1.9417 BTC
 
-ALL MODELED PROTOCOL, WITNESS, DERIVED-DA, LIFECYCLE, REACHABILITY, ECONOMIC & TIMING ASSERTIONS PASSED.
+=== 8. STAGE 1A: MULTI-TIER VAULTS & 100% BANK-RUN EXIT DURATION ===
+  M=3 (<=10 BTC cap): 0.333 vaults/d (0.111 BTC/d @ avg 0.333 BTC) | 100% bank run = ~70.2d (batch=72d) [~46.8d w/ {0.50,0.50}]
+  M=5 (<=15 BTC cap): 0.556 vaults/d (0.185 BTC/d @ avg 0.333 BTC) | 100% bank run = ~64.8d (batch=72d) [~43.2d w/ {0.50,0.50}]
+
+=== 9. HALVING-INDEXED TVL-SCALED K PRIVATE-FORK INEQUALITY (0.50*K*Sub > Cap) ===
+  Cap= 10 BTC (2024 cfg K= 14): 2024-2028:K>=7 | 2028-2032:K>=13 | 2032-2036:K>=26 | 2036-2040:K>=52
+  Cap= 15 BTC (2024 cfg K= 14): 2024-2028:K>=10 | 2028-2032:K>=20 | 2032-2036:K>=39 | 2036-2040:K>=77
+  Cap= 50 BTC (2024 cfg K= 36): 2024-2028:K>=33 | 2028-2032:K>=65 | 2032-2036:K>=129 | 2036-2040:K>=257
+  Cap=200 BTC (2024 cfg K=144): 2024-2028:K>=129 | 2028-2032:K>=257 | 2032-2036:K>=513 | 2036-2040:K>=1025
+
+=== 10. STAGE 1B (clArk) ALTERNATIVE GATE: LIQUIDITY & log2(N) BRANCH EXIT WEIGHTS ===
+  N=  64 VTXOs (depth= 6): unilateral branch exit=  1156 vB | @100 sat/vB=115,600 sats | @500 sat/vB=578,000 sats (0.00578 BTC)
+  N= 128 VTXOs (depth= 7): unilateral branch exit=  1323 vB | @100 sat/vB=132,300 sats | @500 sat/vB=661,500 sats (0.00662 BTC)
+  N= 256 VTXOs (depth= 8): unilateral branch exit=  1490 vB | @100 sat/vB=149,000 sats | @500 sat/vB=745,000 sats (0.00745 BTC)
+  N= 512 VTXOs (depth= 9): unilateral branch exit=  1657 vB | @100 sat/vB=165,700 sats | @500 sat/vB=828,500 sats (0.00829 BTC)
+  N=1024 VTXOs (depth=10): unilateral branch exit=  1824 vB | @100 sat/vB=182,400 sats | @500 sat/vB=912,000 sats (0.00912 BTC)
+  Active ASP liquidity turnover range: 2.0-5.0 BTC (0 operator bonds; expiring VTXOs)
+
+=== 11. REAL 2,000-STEP STAGE 1A SOLVENCY SIMULATION (WITH GENUINE REORGS) ===
+  Bob (1->0.5->exit 0.5) & Mike (1+1->2->exit 0.25) + 2,000 adversarial steps PASSED 1:1 solvency:
+  deposit=9, transfer=265, forced_exit=33, front_paid=9, front_grief=5, exit_cancel=4, take_honest=12, disprove_dual_slash=13, lamport_equivocation_slash=3, topup_op=13, mine_block=1918, reorg=161, reorg_blocks_reverted=1062, reorg_events_reverted=211
+
+ALL v1 (v3.0.0-rfc ZERO-FEDERATION) CONSISTENCY, WEIGHT, PLASMA, TIMELOCK & SOLVENCY CHECKS PASSED.

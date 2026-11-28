@@ -5,20 +5,26 @@ interface Props {
   title: string;
   description: string;
   pathSlug?: string;
+  canonicalSlug?: string;
   rawPath?: string;
   ogImageAlt?: string;
+  versionLabel?: string;
+  noindex?: boolean;
 }
 
 const {
   title,
   description,
   pathSlug = '',
+  canonicalSlug,
   rawPath = 'raw/SPEC.md',
-  ogImageAlt = 'zBTC Interoperability Protocol Specification — BitVM2 Taproot vaults, SPV domain, feeless lattice, Bitcoin.',
+  ogImageAlt = 'zBTC Interoperability Protocol Specification — Zero-Federation Phased Architecture: Stage 0 Verify Bitcoin SPV/PTLC, Stage 1A BitVMX Sovereign ZK Rollup, Stage 1B clArk Gate.',
+  versionLabel = '3.0.0-rfc',
+  noindex = false,
 } = Astro.props;
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const normalizedSlug = pathSlug.replace(/^\/+/, '');
+const normalizedSlug = (canonicalSlug ?? pathSlug).replace(/^\/+/, '');
 const canonical = new URL(`${base}${normalizedSlug}`, Astro.site).href;
 const ogImage = new URL(`${base}og.png`, Astro.site).href;
 const llmsTxt = new URL(`${base}llms.txt`, Astro.site).href;
@@ -31,7 +37,7 @@ const jsonLd = {
   description,
   url: canonical,
   image: ogImage,
-  version: '2.5.0-rfc',
+  version: versionLabel,
   inLanguage: 'en-US',
   isAccessibleForFree: true,
   author: {
@@ -47,12 +53,13 @@ const jsonLd = {
   codeRepository: 'https://github.com/btc-moonshot/spec',
   keywords: [
     'Bitcoin',
-    'BitVM2',
     'Taproot',
+    'BitVMX',
+    'ZK Rollup',
+    'clArk',
     'zBTC',
     'Zenon',
     'SPV',
-    'BLS12-381',
     'PTLC',
     'Lightning Network',
     'Feeless Payments',
@@ -67,7 +74,10 @@ const jsonLd = {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <meta
+      name="robots"
+      content={noindex ? 'noindex, follow' : 'index, follow, max-snippet:-1, max-image-preview:large'}
+    />
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
     <link rel="alternate" type="text/markdown" title="Raw Markdown" href={rawUrl} />

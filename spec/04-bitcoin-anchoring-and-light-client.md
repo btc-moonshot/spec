@@ -1,104 +1,76 @@
-# Part 4: Bitcoin Anchoring & Light Client Verification Specification
+# Part 4: Zenon Consensus Reality (`go-zenon`), Inverted Trust Hierarchy & Optional Light-Client Anchoring
 
-**Document Class:** Normative History-Anchoring, State-Proof & Light-Client Specification (`v2.5.0-rfc`, subject to Upstream Amendment `A-PILLAR-1`)  
-**Upstream Baselines:** [`bigidea`](https://btc-moonshot.github.io/bigidea/), `Project Zeno/merkle-state/MERKLE_STATE_ROOT.md`, `MERKLE_STATE_L2_ALIGNMENT.md`, `Project Zeno/artifacts/proof-format.md`, `docs/architecture/bounded-verification-boundries.md`, `docs/specs/Minimum Verifier Spec.md`, `docs/research/bitcoin_anchoring.pdf`
+**Document Class:** Normative Consensus Security Proof & Non-Custodial Anchoring Specification (`v1` / `v3.0.0-rfc` — Zero-Federation Phased Architecture; supersedes archived `v0` `v2.5.0-rfc`)  
+**Codebase Verified:** `go-zenon` `master` (`e8986a6`, `v0.0.10-alphanet`) and `origin/dev` (`770e893`)  
+**Consistency Checker:** [`scripts/verify_spec_bounds.py`](../scripts/verify_spec_bounds.py)
 
 ---
 
-## 1. Dual-Bounded History Model (Certified-AND-Anchored Light Clients + `56d`/`58d` BitVM2 Expiry)
+## 1. Why Zenon Consensus Cannot Sit in the Bitcoin Custody Path (Grounded in `go-zenon`)
 
-### 1.1 Lower Bound: Genesis Bitcoin Anchor (Already Live on Mainnet)
+A bridge or L2 inherits the weakest safety and liveness threshold of the consensus engine it trusts. Direct inspection of `go-zenon` (`master` `e8986a6` and `origin/dev` `770e893`) proves that **neither current `go-zenon` DPoS nor a future classical BFT upgrade (`CommitteeRootSpork`) can survive a `49%` Zenon compromise**:
 
-Zenon Genesis Momentum (`Height = 1`, hash `9e204601d1b7b1427fe12bc82622e610d8a6ad43c40abf020eb66e538bb8eeb0`, ts `1637755200`) embeds Bitcoin block hash `000000000000000000004dd040595540d43ce8ff5946eeaa403fb13d0e582d8f` (Bitcoin mainnet block `710,968`, consistent with ts `1637755200`) inside `Momentum.Data` ([`chain/genesis/embedded_genesis_string.go:6`](https://github.com/zenon-network/go-zenon/blob/770e893a0aa78240685043c1d396c65caa1a6635/chain/genesis/embedded_genesis_string.go#L6), [`chain/genesis/embedded_genesis_test.go:11`](https://github.com/zenon-network/go-zenon/blob/770e893a0aa78240685043c1d396c65caa1a6635/chain/genesis/embedded_genesis_test.go#L11)).
+### 1.1 Current `go-zenon` Is Longest-Chain DPoS With Zero Slashing, Grindable Seeds & a 30-Momentum Split Cliff
 
-### 1.2 Upper Bound: Periodic Checkpoint Anchoring (`finalityDigest`)
+Across `consensus/`, `protocol/`, `verifier/`, and `vm/embedded/implementation/pillars.go` on **both** `master` and `origin/dev`, there is **zero** BFT voting, **zero** quorum certificates, **zero** finality gadget, **zero** equivocation detection, and **zero** slashing:
 
-Every `360` Momentums (~1h) and at every **30-day finality epoch handoff**, permissionless anchorers commit the canonical signer-subset-independent `finalityDigest` onto Bitcoin L1:
+1. **Unweighted Top-30 Cutoff (`groupA`) Amplifies Stake Into >50% Slots:**
+   - `vm/constants/consensus.go:15-20` sets `BlockTime = 10s`, `NodeCount = 30`, `RandCount = 15`, `CountingZTS = ZNN` (`300s` election tick, `consensus/context.go:23`).
+   - `consensus/election_algorithm.go:65-75` (`master`; `89-99` on `origin/dev`) puts the top 30 active Pillars by live delegated ZNN (`chain/momentum/embedded.go:59-104`) into `groupA`, selects `15` uniformly from `groupA`, moves the unselected `15` into `groupB`, and selects `15` from `groupB` (`election_algorithm.go:78-118`). Because `groupA` is unweighted inside the top 30, an attacker with `49%` of delegated ZNN can Sybil-split stake just above the #30 Pillar cutoff to capture **>50% of `groupA` slots**.
+2. **Deterministic Height-Only PRNG Seed Is Trivially Grindable:**
+   - `consensus/election_algorithm.go:38-40` (`master`; `58-60` on `origin/dev`): `findSeed` returns **`int64(context.hashH.Height)`** — **purely the Momentum height, with ZERO block-hash entropy**.
+   - Because `proofBlock = GetMomentumBeforeTime(EndTime(tick - 2))` (`consensus/election.go:90-145`), a `49%` adversary controlling `~14–15` slots in tick `T - 2` can precompute `SelectProducers` offline for `H_base + {0..15}` and skip just enough of their own slots in tick `T - 2` to land `proofBlock.Height` on the exact integer $H^*$ maximizing their slots in tick `T` (expected max over 15 draws shifts mean `14.7 → ~19.4` slots = **`~65%` of slots in tick `T`**!).
+3. **Zero Equivocation Checks + Hardcoded 30-Momentum Rollback Cliff = Permanent Chain Split:**
+   - `verifier/momentum.go:217-275` checks only signature + slot producer — a Pillar can sign arbitrarily many conflicting Momentums for the same slot at zero cost.
+   - `protocol/chain_bridge.go:241, 246` (`master`; `293, 304` on `origin/dev`) enforces pure **longest-chain-by-height** (`tail.Height <= ourFrontier.Height` → reject) AND hard-refuses any rollback deeper than `30` Momentums (`ourFrontier.Height - target.Height > 30` → reject).
+   - **49% Permanent Split Attack:** By equivocating on both sides of a network delay/partition splitting the `51%` honest Pillars into `26%` and `25%`, the `49%` adversary powers Branch A (`26% + 49% = 75%`) and Branch B (`25% + 49% = 74%`) simultaneously past depth `30` (`~6.5` minutes), **permanently locking the two halves on incompatible histories**.
+   - **Censorship & Sync Gating:** Empty Momentums (`len(Content) == 0`) are valid (`verifier/momentum.go:158-210`, `pillar/worker_momentum.go:13`), allowing `49%` Pillars to omit user exits, orphan honest inclusion blocks via seed-ground `>50%` ticks, and exploit `ReadyToProduce` (`protocol/readiness.go:16, 94-122`, `producerStallWindow = 60s`).
+4. **No Succinct External State Proof & Low Market Cap:**
+   - `Momentum.ChangesHash` is `SHA3-256(leveldb.Batch.Dump())` (`common/db/patch.go:124-126`) — an opaque diff dump, NOT a state root (`Minimum Verifier Spec.md:735-756`). `Content.Hash()` is a flat hash over headers (`Minimum Verifier Spec.md:168`).
+   - With total ZNN market cap at **`~25–33 BTC`**, ZNN-denominated slashing can never economically secure multi-BTC vaults.
+
+### 1.2 Why Classical BFT (`CommitteeRootSpork`) Also Fails at `49%`
+
+Even if Zenon upgraded to a classical partially synchronous BFT finality committee (`n >= 3f + 1`), **`49% > 33.3%` breaks BOTH liveness and safety**:
+- **Liveness Halt (`>= 33.4%`):** `49%` withholding votes blocks `67%` quorum indefinitely.
+- **Safety Equivocation (`>= 33.4%`):** `49%` splits `51%` honest validators into `25.5% + 25.5%` and signs **two conflicting `74.5% > 66.7%` finality certificates**, allowing a malicious prover to drain any bridge whose verifier trusts Zenon BFT certificates. *(Synchronous BFT cannot be verified by Bitcoin L1/SNARK circuits because Bitcoin cannot observe Zenon's network delay $\Delta$.)*
+
+---
+
+## 2. The Inverted Trust Hierarchy (`0-of-N` Zenon Trust — Surviving `49%–100%` Zenon Compromise)
+
+Because Zenon consensus breaks at `49%` (DPoS) and `>33.3%` (BFT) and ZNN market cap is `~25–33 BTC`, **`v1` completely removes Zenon consensus and ZNN slashing from Bitcoin custody**:
 
 ```text
-finalityDigest = SHA3-256(
-    "ZNN_FINALITY_V2" ||
-    u64BE(chainId) ||
-    u64BE(finalityEpochIndex) ||    // 30-day monthly finality epoch (R5-H1, R5-L1!)
-    u64BE(height) ||
-    u64BE(timestampUnix) ||
-    momentumHash(32B) ||
-    stateRoot(32B) ||
-    finalityCommitteeRoot(32B) ||
-    nextFinalityCommitteeRoot(32B)
-)
-c_h = SHA256("ZNN_BTC_ANCHOR_V2" || finalityDigest)
+Bitcoin Mainnet L1 (PoW Canonical Ordering + Complete 0x02 DA + 0x01/0x03 Forced Inclusion + BitVMX Custody)
+        ▲
+        │  Canonical zBTC state root R_h derived 100% from Bitcoin L1 blocks (0% Zenon trust!)
+        │  Unilateral L1 forced exit (0x01) & transfer (0x03) bypass Zenon completely
+        │
+Zenon Network L1 (Untrusted Feeless Soft-Preconfirmation Sequencer via AccountBlock.Data + Stage 0 SPV Event Oracle)
 ```
 
-Valid BIP-341/342 Bitcoin encodings:
-1. **Mode A (OpenTimestamps)**: OTS SHA-256 Merkle path into a Bitcoin `OP_RETURN`.
-2. **Mode B (`OP_RETURN`)**: `OP_RETURN <44 bytes: "ZNNA"(4B) || u64BE(height)(8B) || c_h(32B)>`.
-3. **Mode C (Taproot)**: `Q = P + H_{"TapTweak"}(xonly(P) || c_h) * G` OR Tapscript `OP_FALSE OP_IF <32B c_h> OP_ENDIF <32B pk> OP_CHECKSIG`. *(Bare `OP_RETURN` inside an executable Tapscript leaf is forbidden under BIP-342.)*
-
-### 1.3 Certified-AND-Anchored Fork Choice (Light Clients) & BitVM2 Long-Range Defense
-
-- **Light Clients**: Uncertified anchors carry ZERO authority; accepted ONLY alongside a valid dual-supermajority BLS12-381 `FinalityCertificate` whose `finalityDigest` hashes to `c_h` and whose `|cert.TimestampUnix - anchorHeader.nTime| <= 21,600`s (`<= 6h`). Earliest Bitcoin block embedding a valid `c_h` wins conflicting certified histories; conflicts trigger `REFUSED` + on-chain equivocation evidence.
-- **Stateless BitVM2 Verifiers (`R5-L2`, `R6-H1`)**: Do NOT rely on an unanchored in-SNARK Bitcoin header check. Instead, long-range protection rests on THREE coupled mechanisms (subject to Assumption #3 challenging invalid kickoffs): (i) **staggered Bitcoin `OP_CLTV` expiry (`56d` `StaleConnB/CKill`, `58d` `StaleChainBurn`, [`spec/01 §3.2, §3.4`](./01-bitcoin-taproot-vault-enforcement.md#L54-L97))**, (ii) **mandatory on-chain Bitcoin publication of the fixed `408 B` `targetCert || handoffSlot` across `7` per-block `OP_HASH160` W-OTS blocks + `6` midstates in `AssertCertDATx` (`29,882 vB → 30 kvB` derived, `G-23`)**, and (iii) **historical-root `SubmitInvalidCertProof` + U2 `72`-day post-committee-service Pillar stake lock** (`>= 58d + 14d` grace, §3.3 below), making every in-scope historical committee signer slashable on Zenon when challenged and published!
+| Property | Traditional Bridge / Archived `v0` | `v1` Inverted Trust Hierarchy (Stage 1A) |
+|---|---|---|
+| **Canonical `zBTC` Fork Choice** | Zenon DPoS or BLS BFT Committee (breaks at `33.4%–49%`) | **Bitcoin Mainnet PoW** (first valid `0x02` matching `R_{h-1}` wins; `0%` Zenon trust) |
+| **Data Availability (DA)** | Zenon full nodes / committee | **Bitcoin L1 `0x02` Taproot witness** (complete mutated SMT leaves `16 B`/`48 B` + `π_batch`) |
+| **Exit Censorship Resistance** | Censored by Zenon Pillars / Plasma spikes / signers | **Bitcoin L1 `0x01 FORCED_EXIT`** (uncensorable even under **100%** Zenon compromise!) |
+| **Custody Security Coupling to ZNN** | ZNN staking/slashing (`~25–33 BTC` mcap ceiling) | **`0%` ZNN coupling** (100% BTC-denominated `BitVMX` bonds `2.60 BTC`/lane + `1-of-N` verification) |
+| **Zenon's Actual Value-Add** | Custody bottleneck | **Feeless `~11.4s` soft preconfirmations (`0` sat BTC fee) + Stage 0 Bitcoin Event Oracle** |
 
 ---
 
-## 2. Canonical Shared State Tree (`common/trie` & `proof-format.md` V1)
+## 3. Optional Non-Blocking Zenon Anchoring & Light-Client Track (Consumer UX Only)
 
-Byte-exact reproduction of `Project Zeno/merkle-state/MERKLE_STATE_ROOT.md`, `MERKLE_STATE_L2_ALIGNMENT.md`, and `Project Zeno/artifacts/proof-format.md` §4:
-- NIST FIPS-202 `SHA3-256`, full depth `256`, MSB-first (`0` → left, `1` → right), `LeafHash(path, val) = SHA3-256(path || val)`, both-zero interior short-circuit `zero32`.
-- **L1 vs L2 Empty Semantics**: L1 `common/trie` pre-hashes DB keys, applies `FoldFilter` (excluding `{0}/{1}/{2}`), and folds empty values to deletion; L2 `smtcore` uses 32-byte paths directly and distinguishes present-empty (`SHA3-256(path)`) from absent (`zero32`).
-- **Wire Format (`SmtProof`, deepest-first `i = 0..255` ⇒ `depth = 255 - i`)**:
-  ```text
-  flags(u8) || key(32B) || leaf_hash(32B) || sibling_bitmap(32B) || sib_count(u16) || siblings(sib_count*32B) [|| value_len(u32) || value]
-  ```
-- Never anchor cross-language proofs to `Momentum.ChangesHash` (`goleveldb.Batch.Dump()`).
+> **Hard Custody Boundary:** Nothing in §3 is required for Stage 0, Stage 1A (`BitVMX`), Stage 1B (`clArk`), or Stage 2 `zBTC` custody. All items below are optional, non-blocking Zenon network infrastructure for consumer mobile/browser light clients verifying *non-BTC Zenon-native state* (ZNN, QSR, Accelerator-Z).
 
----
+### 3.1 Genesis Bitcoin Anchor (Live on Mainnet)
 
-## 3. 30-Day BLS12-381 `FinalityCommitteeRoot`, Economic Handoff Pin, Historical-Root Slashing & `72`-Day Lock (`R6-H1`, `R6-L7`, `A-PILLAR-1`)
+Zenon Genesis Momentum (`Height = 1`, hash `9e204601d1b7b1427fe12bc82622e610d8a6ad43c40abf020eb66e538bb8eeb0`, `ts = 1637755200`) embeds Bitcoin mainnet block `710,968` (`000000000000000000004dd040595540d43ce8ff5946eeaa403fb13d0e582d8f`) in `Momentum.Data` (`chain/genesis/embedded_genesis_string.go:6`), grounding Genesis-Anchored Lineage Verification (`zenon-developer-commons`: `docs/specs/GALV_spec_draft.md`).
 
-### 3.1 Immutable 30-Day BLS12-381 `min-sig` `FinalityCommitteeRoot`
+### 3.2 Optional Periodic Zenon Checkpoint Anchoring & `StateRoot` (`common/trie`)
 
-- **30-Day Finality Epoch Index** (derived from `dev:consensus/consensus.go:45,86` 24h consensus epochs without altering reward epochs): `consensusEpoch(m) = (m.TimestampUnix - genesis.TimestampUnix) / 86400`; **`finalityEpochIndex(m) = consensusEpoch(m) / 30`**, with **`finalityEpochStartTs(E) = genesis.TimestampUnix + E * 30 * 86400`**.
-- **IETF BLS12-381 `min-sig` POP Scheme (`draft-irtf-cfrg-bls-signature-05`, `A-PILLAR-1`, `R6-L7`)**:
-  - Signing DST: `"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_POP_ZBTC_V1_"` (hash-to-G1 over `finalityDigest`, `48 B` compressed G1 sig, `96 B` compressed G2 pubkey).
-  - Proof-of-Possession DST (`PillarContract.RegisterFinalityKey(blsPubKeyG2, popSigG1)`): **`"BLS_POP_BLS12381G1_XMD:SHA-256_SSWU_RO_POP_ZBTC_V1_"`** (distinct DST preventing rogue-key attacks!).
-- **Exact `FinalityCommitteeRoot(E)` Merkle Tree (`R6-L7`)**: At exact transition Momentum `h_trans(E)` (first Momentum advancing `finalityEpochIndex` to `E`), consensus snapshots top `K_fin = 30` active registered Pillars (excluding `ExitCommitteeRequested == true`) ordered by `(totalDelegatedZnn desc, producerAddress asc)`, computes a **fixed-depth-5 (`32`-leaf, slots `30..31 = zero32`) SHA-256 Merkle tree** over `SHA256("ZBTC_COMMITTEE_LEAF_V1" || producerAddress(20B) || blsPubKeyG2(96B) || weightU64BE(8B))`, stamps Momentum Tag 15, records `HistoricalCommitteeRoot[FinalityCommitteeRoot(E)] = E` on-chain, and stamps `LastFinalityCommitteeEpoch = E` on each selected `PillarInfo`!
-- **Fixed `204 B` `FinalityCertificate`** (even when ALL `30` of `30` Pillars sign!): `finalityEpochIndex(8) || height(8) || timestampUnix(8) || momentumHash(32) || stateRoot(32) || finalityCommitteeRoot(32) || nextFinalityCommitteeRoot(32) || signerBitfield(4) || aggSignatureG1(48)`. *(Note: `chainId` is bound implicitly via the signing digest `finalityDigest` above, NOT repeated inside the 204 B payload — `R6-L7`.)*
-
-### 3.2 Canonical `nextFinalityCommitteeRoot` & Economic Handoff Pin (`R6-H1`)
-
-- **Canonical Values Defined at EVERY Height `h`**:
-  - At the **exact epoch-transition Momentum `h = h_trans(E + 1)`**: `canonicalSigningCommitteeRoot(h) = FinalityCommitteeRoot(E)` and **`canonicalNextCommitteeRoot(h) = FinalityCommitteeRoot(E + 1)`** (Momentum Tag 15 at `h_trans(E + 1)`).
-  - At **EVERY non-transition height `h`** inside epoch `E`: `canonicalSigningCommitteeRoot(h) = FinalityCommitteeRoot(E)` and **`canonicalNextCommitteeRoot(h) = FinalityCommitteeRoot(E)`** (unchanged!).
-- **No `CarryOverCertificate` & Honest Economic Enforcement (`R6-H1`)**: `CarryOverCertificate` is **DELETED** — every 30-day epoch deterministically snapshots `FinalityCommitteeRoot(E+1)` at `h_trans(E+1)`. Because the stateless BitVM2 circuit only pins `E_anchor_root` and has NO oracle for future `h_trans(E+1)` or `Root(E+1)`, the circuit verifies the fixed `408 B` `targetCert || handoffSlot` chain (`handoffSlot == 0x00^204` if `target.epoch == E_anchor`, else `handoffCert` chains `E_anchor_root → handoffCert.NextFinalityCommitteeRoot → targetCert`), while the transition-height pin is enforced **economically** via historical-root `SubmitInvalidCertProof` Case A below!
-
-### 3.3 Finality Gadget, Historical-Root Full-Preimage Slashing & `72`-Day Post-Service Lock (`R6-H1`, `A-PILLAR-1`)
-
-- **Dual Supermajority & U2 Finality Gadget**: Valid `FinalityCertificate` requires `popcount(signerBitfield) >= 21` (of 30) AND `sum(signedWeight) * 3 > 2 * sum(totalWeight)`, verified by BLS12-381 `FastAggregateVerify` over `finalityDigest` (with canonical `chainId` and signing DST). Honest Pillars sign ONLY at depth **`>= 6` Momentums**, and U2 consensus refuses `DeleteMomentum` across any dual-supermajority-certified Momentum.
-- **Checkpoint Restriction for BitVM2**: Target certificates accepted by BitVM2 MUST sit at canonical checkpoint heights (`height % 30 == 0` OR transition height `h_trans`).
-- **Two Comprehensive On-Chain Slashing Paths (`dev:vm/embedded/{definition,implementation}/pillars.go`, Phase U2)**:
-  1. **`SubmitEquivocationProof(certA, certB)`**: Slashes any Pillar signing two conflicting `FinalityCertificate`s for the same `(finalityEpochIndex, height)` (unconditional even sub-quorum).
-  2. **`SubmitInvalidCertProof(cert)` (Historical-Root Precondition + Full 7-Field Cert Check — Closing `R6-H1`!)**:
-     - **Precondition (Historical Tag-15 Committee Lookup!)**: Looks up `E' := HistoricalCommitteeRoot[cert.FinalityCommitteeRoot]` (requiring `cert.FinalityCommitteeRoot` to be a real historical Tag-15 `FinalityCommitteeRoot` on Zenon!) and verifies that `cert` carries a valid dual-supermajority BLS12-381 `min-sig` aggregate signature under **committee `E'`** over `finalityDigest(canonicalChainId, cert)`! *(NEVER rejects merely because `cert.FinalityCommitteeRoot != canonicalSigningCommitteeRoot(cert.Height)`!)*
-     - **Case A (`cert.Height <= frontier.Height`)**: Slashes `100%` of `15,000 ZNN` for EVERY signer in `cert.SignerBitfield` (from committee `E'`) whenever **ANY** of the 7 certificate fields disagrees with canonical Zenon state at `cert.Height`:
-       `cert.FinalityEpochIndex != canonicalFinalityEpoch(h) || cert.Height != m.Height || cert.TimestampUnix != m.TimestampUnix || cert.MomentumHash != m.Hash || cert.StateRoot != m.StateRoot || cert.FinalityCommitteeRoot != canonicalSigningCommitteeRoot(h) || cert.NextFinalityCommitteeRoot != canonicalNextCommitteeRoot(h)`!
-       *(Closes `R6-H1` completely: a committee-`E` cartel signing a forged handoff at `h_trans(E+1)+1` — OR signing a target inside epoch `E+1` — verifies under historical committee `E` and IMMEDIATELY slashes every signer via `cert.FinalityCommitteeRoot != canonicalSigningCommitteeRoot(h)` and/or `NextFinalityCommitteeRoot` mismatch!)*
-     - **Case B (`cert.Height > frontier.Height + 60`)**: Immediately slashes dual-supermajority certificates signed under any historical committee `E'` for non-existent future Momentums (`> 10` minutes ahead of tip).
-- **Post-Committee-Service Pillar Stake Lock & Clean Exit (`A-PILLAR-1`)**:
-  - Overrides baseline `dev:vm/embedded/implementation/pillars.go:132-138,395-400` per-Pillar `% 90d` phase!
-  - `PillarContract.RequestExitCommittee()` marks `ExitCommitteeRequested = true` so the Pillar is excluded from all future 30-day finality committee snapshots.
-  - `PillarContract.Revoke` rejects withdrawal until **`now >= finalityEpochEndTs(pillar.LastFinalityCommitteeEpoch) + 72 days`** (`>= T_bond_expiry (58d) + 14d grace`). Once `ExitCommitteeRequested == true` AND the `72`-day post-service lock has elapsed, **`Revoke` permits immediate withdrawal without waiting an additional `% 90d` lock cycle**, guaranteeing both 100% slashability during active chains (when challenged and published) AND bounded exit for top-30 Pillars!
-
-### 3.4 `Momentum.ContentRoot`
-
-Domain-separated SHA3-256 Merkle root (`0x00` leaf / `0x01` interior, no odd-node duplication) over `AccountHeader.Bytes()`.
-
----
-
-## 4. Light Client Verification Protocol & Anti-Frontier Rule
-
-1. Verify explicit signed 30-day BLS12-381 `FinalityCertificate` chain from trusted genesis/anchored checkpoint + verify `|cert.TimestampUnix - anchorHeader.nTime| <= 6h` + zero conflicting certified anchors.
-2. Verify `proof-format.md` V1 `SmtProof` against `cert.StateRoot` and recompute `AccountBlock.ComputeHash()` (`dev:chain/nom/account_block.go:283`) for every inspected account block.
-3. Application-level client verdicts: `PROVEN` | `REJECTED` | `REFUSED` (with Refusal Closure).
-4. **Anti-Frontier Rule** ([`docs/architecture/bounded-verification-boundries.md`](https://github.com/TminusZ/zenon-developer-commons/blob/37194528a69d260c22221f3764b21bda9892cf56/docs/architecture/bounded-verification-boundries.md)): $O(k)$ bounded-frontier verification is **PERMITTED ONLY** for read-only consumer wallet hints; **STRICTLY PROHIBITED** for bridge claim admission, Settlement mint/release/refund, operator fronting, or BitVM2 verification.
+If Zenon independently ships optional `StateRoot` (`common/trie` 256-bit `SHA3-256` SMT) and periodic Bitcoin checkpoint anchoring (`OP_RETURN "ZNNA" || u64BE(height) || SHA256("ZNN_BTC_ANCHOR_V2" || digest)` every `360` Momentums ≈ `68m` at `11.4s`/Momentum) for native Zenon light clients:
+- **Honest Light-Client Trust Statement:** Bitcoin checkpoint anchoring provides **immutable timestamp ordering and long-range tie-breaking ONLY — NOT execution validity** of Zenon L1 state. Native Zenon light clients still trust Zenon's Pillar set for non-rollup state transitions.
+- **Optional U2 Committee Quorum & Selection Hardening (`H-1`, `L-1`):** If Zenon ever deploys an optional non-custodial BLS12-381 finality committee (`K_fin = 30`), any degraded-membership rule for `21 <= eligible < 30` MUST define quorum strictly as **`popcount >= ceil(2 * eligible / 3)`** (e.g., `14-of-21` at `eligible = 21`, up to `20-of-30` / `21-of-30` at `eligible = 30`) — **NEVER** requiring both `ceil(2 * eligible / 3)` AND `popcount >= 21`, which forces `21-of-21` (`100%`) unanimity at `eligible = 21`! Furthermore, any future committee selection MUST NOT rely on non-existent `prevEpochRandao`; it requires either time-weighted variable slashable self-bond or a dedicated VRF/commit-reveal randomness beacon.
+- **Zero Impact on `zBTC`:** Because Stage 1A `zBTC` derives 100% of its state root $R_h$ from Bitcoin L1, consumer `zBTC` wallets verify their balances directly against Bitcoin headers (via BIP-157/158 Neutrino) + `0x02` SMT Merkle proofs — requiring **zero** Zenon BLS committee or Zenon `StateRoot`!

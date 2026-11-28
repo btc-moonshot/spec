@@ -1,21 +1,24 @@
 ---
 import SpecShell from '../components/SpecShell.astro';
-import { renderSpecFile } from '../lib/spec';
+import { buildV1ToV0Diff, renderSpecFile } from '../lib/spec';
 
-const spec = renderSpecFile('SPEC.md');
+const spec = renderSpecFile('SPEC.md', 'v1');
+const diffBundle = buildV1ToV0Diff('SPEC.md');
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <SpecShell
   activeKey="index"
+  version="v1"
   title={spec.title}
-  pageTitle="zBTC: Bitcoin–Zenon Interoperability Protocol Specification (v2.5.0-rfc)"
-  description="Public RFC specification for BitVM2 Taproot vaults, adversarially-bounded Bitcoin SPV, feeless block-lattice zBTC settlement, 30-day BLS12-381 finality anchoring, and peg-free PTLC/LN rails."
+  pageTitle="zBTC: Bitcoin–Zenon Interoperability Protocol Specification (v1 / v3.0.0-rfc)"
+  description="Public RFC v1 (v3.0.0-rfc): Zero-Federation Phased Architecture — Stage 0 Verify Bitcoin (SPV + Non-Custodial PTLC/LN) → Stage 1A Right-Sized BitVMX (n=8) Sovereign ZK Validity Rollup | Stage 1B clArk Alternative Gate → Stage 2 Zero-TTP Scale."
   pathSlug=""
   rawPath="raw/SPEC.md"
-  dek="Normative master specification, 5-assumption honest threat model, upstream amendments, and executable verification gates. Agent-ready via /llms.txt and /llms-full.txt."
+  dek="Normative zero-federation master specification: Stage 0 Verify Bitcoin → Stage 1A Right-Sized BitVMX Rollup | Stage 1B clArk Gate → Stage 2 Zero-TTP Scale, honest threat model, and written R7 Q&A."
   toc={spec.toc}
-  next={{ label: 'Part 1: Bitcoin Taproot Vault Enforcement', href: `${base}part-01/` }}
+  diffBundle={diffBundle}
+  next={{ label: 'Part 1: Zero-Federation Bitcoin Custody Enforcement (BitVMX & clArk)', href: `${base}part-01/` }}
 >
   <div class="spec-body" set:html={spec.html} />
 </SpecShell>

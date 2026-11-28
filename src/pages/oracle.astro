@@ -2,45 +2,48 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import SpecShell from '../components/SpecShell.astro';
+import { buildV1ToV0Diff } from '../lib/spec';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const scriptSrc = fs.readFileSync(path.join(process.cwd(), 'scripts/verify_spec_bounds.py'), 'utf-8');
 const oracleOutput = fs.readFileSync(path.join(process.cwd(), 'public/raw/oracle-output.txt'), 'utf-8');
+const diffBundle = buildV1ToV0Diff('scripts/verify_spec_bounds.py');
 
 const toc = [
   { id: 'run-locally', label: 'Run Locally', level: 2 as const },
-  { id: 'verified-output', label: 'Verified Output (v2.5.0-rfc)', level: 2 as const },
-  { id: 'oracle-source', label: 'Oracle Source (verify_spec_bounds.py)', level: 2 as const },
+  { id: 'verified-output', label: 'Verified Output (v1 / v3.0.0-rfc)', level: 2 as const },
+  { id: 'checker-source', label: 'Checker Source (verify_spec_bounds.py)', level: 2 as const },
 ];
 ---
 
 <SpecShell
   activeKey="oracle"
-  title="Executable Integer-Satoshi Bounds Oracle"
-  description="Zero-dependency Python 3 asserting oracle verifying every struct size, depth-256 witness bound, per-block W-OTS DA weight, integer-satoshi BitVM2 payoff, 180-day rotation simulation, and Poisson/halving K bound."
+  version="v1"
+  title="Deterministic Consistency & Bounds Checker"
+  description="Zero-dependency Python 3 consistency checker verifying Stage 0 coinbase midstate padding, honest 8 MiB Plasma throughput & PTLC 2.3x margins, Stage 1A n=8 BitVMX TRUC v3 weights, Lamport TakeTx, positive-EV verifier matrix, bank-run math, halving-indexed K, a non-no-op 2,000-step state-machine & reorg simulation, and Stage 1B clArk bounds."
   pathSlug="oracle/"
   rawPath="raw/scripts/verify_spec_bounds.py"
-  dek="Every numeric figure in SPEC.md and Parts 01–05 is derived and asserted in exact integer satoshis by scripts/verify_spec_bounds.py."
+  dek="Checks internal mathematical consistency against explicitly labeled SOURCED_, POLICY_, and PRE_MAINNET_TARGET_ inputs — not a substitute for Signet execution or independent audits."
   toc={toc}
-  prev={{ label: 'Part 5: Detailed go-zenon Node Upgrade Plan', href: `${base}part-05/` }}
-  next={{ label: 'Adversarial Review Trail (R1–R6)', href: `${base}reviews/` }}
+  diffBundle={diffBundle}
+  prev={{ label: 'Part 5: go-zenon Prerequisites & Zero-Hard-Fork Custody Plan', href: `${base}part-05/` }}
+  next={{ label: 'Changelog (v0 → v1)', href: `${base}changelog/` }}
 >
   <h2 id="run-locally">Run Locally</h2>
   <p>
-    Requires only standard-library Python 3 (zero external dependencies). GitHub Actions CI executes this script on
-    every pull request:
+    Requires only standard-library Python 3 (zero external dependencies). GitHub Actions CI executes both this checker
+    and the archived <code>v0</code> oracle on every pull request:
   </p>
   <pre><code>python3 -I scripts/verify_spec_bounds.py</code></pre>
   <p>
-    Unmeasured Signet BitVM2, circuit, and market parameters are explicitly prefixed
-    <code>ASSUMED_STAGE_0C_TARGET_</code> and constitute mandatory Stage 0C empirical measurement gates (Gate G-2).
     Download raw source: <a href={`${base}raw/scripts/verify_spec_bounds.py`}>verify_spec_bounds.py</a> ·
-    <a href={`${base}raw/oracle-output.txt`}>oracle-output.txt</a>.
+    <a href={`${base}raw/oracle-output.txt`}>oracle-output.txt</a> ·
+    <a href={`${base}v0/oracle/`}>archived v0 oracle</a>.
   </p>
 
-  <h2 id="verified-output">Verified Output (v2.5.0-rfc)</h2>
+  <h2 id="verified-output">Verified Output (v1 / v3.0.0-rfc)</h2>
   <pre><code>{oracleOutput}</code></pre>
 
-  <h2 id="oracle-source">Oracle Source (verify_spec_bounds.py)</h2>
+  <h2 id="checker-source">Checker Source (verify_spec_bounds.py)</h2>
   <pre><code>{scriptSrc}</code></pre>
 </SpecShell>

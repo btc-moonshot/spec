@@ -1,85 +1,36 @@
-# zBTC: Bitcoin–Zenon Interoperability Protocol Specification (`v2.5.0-rfc`)
+# zBTC: Bitcoin–Zenon Interoperability Protocol Specification — `v1` (`v3.0.0-rfc`)
 
-> Public RFC technical specification for storing native BTC in BitVM2-constrained Taproot vaults, representing it 1:1 as feeless `zBTC` on Zenon's block-lattice via an atomic Treasury Pre-Mint `SettlementContract`, verifying Bitcoin via an adversarially-bounded optimistic SPV authorization domain (`d_btc_asset`), anchoring history via 30-day BLS12-381 `min-sig` finality committees, and providing peg-free PTLC adaptor swaps and Lightning submarine-swap gateways.
+> Public RFC `v1` (`v3.0.0-rfc`, **Zero-Federation Phased Architecture**): explicitly rejects custodial federated multisigs and defines a phased non-custodial Bitcoin–Zenon interoperability roadmap:
+> - **Stage 0 (`0–6 mo`, `0 BTC` bridge custody):** Direct-on-L1 Bitcoin SPV Event Oracle + non-custodial PTLC adaptor & Lightning HTLC atomic swaps.
+> - **Stage 1A (`12–18+ mo` incl. audit, `~12.8–18.8 BTC` hard BTC):** Right-sized `BitVMX-CPU` (`n = 8`, 100% BIP-431 TRUC v3, `M = 3–5` operators, `N = 7` pre-committed verifiers, deleted-key `{0.50, 0.25, 0.25}` BTC vaults) + **Bitcoin-Anchored Sovereign ZK Validity Rollup** (`0-of-N` Zenon trust — survives **49%–100%** Zenon compromise, feeless `AccountBlock.Data` sequencer rails, uncensorable Bitcoin L1 forced inbox `0x00..0x07`, immutable `vk_STF`, `0%` ZNN slashing/custody).
+> - **Stage 1B Alternative Gate (`3–6 mo`, `2–5 BTC` liquidity):** `clArk` discrete expiring VTXO coordination (relinquishing pooled fungible `zBTC` in favor of `0-of-N` post-round unilateral exit with `log2(N)` L1 exit branches).
+> - **Stage 2:** Zero-TTP scaling via `N`-of-`N` voluntary cohort handover or clean non-commingled `zBTC_v2`, plus optional covenant-enabled sovereign ZK-rollup track.
+>
+> Supersedes archived `v0` (`v2.5.0-rfc`, preserved byte-for-byte under `versions/v0/`).
 
-- **Status:** Public RFC (`v2.5.0-rfc`) — pre-implementation design specification open for adversarial public & AI-agent review. NOT mainnet-active.
+- **Current Version:** `v1` (`v3.0.0-rfc`) — pre-implementation zero-federation RFC open for independent security review. NOT mainnet-active.
+- **Archived Version:** `v0` (`v2.5.0-rfc`, commit `7b47b8c`, superseded — do not implement): https://btc-moonshot.github.io/spec/v0/
+- **Changelog & Diffs (`v0 → v1`):** https://btc-moonshot.github.io/spec/changelog/
 - **Canonical Web Site:** https://btc-moonshot.github.io/spec/
 - **GitHub Repository:** https://github.com/btc-moonshot/spec
-- **Single-Fetch Full Bundle (for LLMs):** https://btc-moonshot.github.io/spec/llms-full.txt
-- **Executable Numeric Oracle:** `python3 -I scripts/verify_spec_bounds.py`
+- **Single-Fetch Full Bundle (`v1`):** https://btc-moonshot.github.io/spec/llms-full.txt
+- **Consistency & Bounds Checker:** `python3 -I scripts/verify_spec_bounds.py`
 
-## Normative Specification Files (Raw Markdown & HTML)
+## Normative Specification Files (`v1` / `v3.0.0-rfc`)
 
 Read in authority-precedence order (`SPEC.md §2.1`):
 
-- [Master Overview (`SPEC.md`)](https://btc-moonshot.github.io/spec/raw/SPEC.md): Architecture, end-to-end flows, 5-assumption honest threat model, upstream amendment register (`A-SPEC-1..6`, `A-BTC-1`, `A-MINT-1`, `A-PILLAR-1`), and staged verification gates. HTML: https://btc-moonshot.github.io/spec/
-- [Part 1 — Bitcoin Taproot Vault Enforcement (`BTC-ENFORCEMENT-V1`)](https://btc-moonshot.github.io/spec/raw/spec/01-bitcoin-taproot-vault-enforcement.md): 4-key registry, fixed 408 B 2-slot BLS12-381 cert DA, per-block `OP_HASH160` `w=4` W-OTS + 7-chunk Leaf-3B SHA-256 (`29,882 vB -> 30 kvB`, `C = 1,208`), staggered `46d / 56d / 58d` CLTVs, 30-day rotation schedule, exact integer-satoshi BitVM2 economics (`F_assert = 1.45 BTC`, `Bond = 3.70 BTC`), Tier 1B/2, 11-item wind-down plan. HTML: https://btc-moonshot.github.io/spec/part-01/
-- [Part 2 — Bitcoin Authorization Domain (`d_btc_asset`) & SPV Verifier](https://btc-moonshot.github.io/spec/raw/spec/02-btc-authorization-domain-and-spv.md): 17 input tags (`0x00..0x10`), never-pruned `ActiveChainByHeight[h]`, streaming SHA-256 tx verifier, multi-gen `TrackedVaultRecord`, verifier-decided SMT inclusion vs all-epoch absence `BTC_VAULT_SPEND_PROOF`, decoupled `BTC_RELEASE_PROOF`, single-authority anti-censorship `PEGOUT_SLOT_CLAIMED`, halving-indexed `K_pilot = 14`, and 29 SPV conformance vectors. HTML: https://btc-moonshot.github.io/spec/part-02/
-- [Part 3 — Settlement Contract, Atomic Treasury `zBTC`, Plasma & Peg-Free Rails](https://btc-moonshot.github.io/spec/raw/spec/03-settlement-minted-zbtc-and-feeless-rails.md): `TokenContract.IssueMinted` -> single-use `ReceiveTreasury()`, `BatchCommitmentV3` + inductive `StepTraceLeaf` (`328 B`), bounded Multi-Tx Sessions (`8,676 B` @ depth 256), latency- & reservation-aware `G-21`, aligned cross-store vault state machine, `500 ZNN` `SlotBondZnn`, BIP-327 tweaked PTLC adaptor swaps, and LN HTLC submarine-swap gateway. HTML: https://btc-moonshot.github.io/spec/part-03/
-- [Part 4 — Bitcoin Anchoring & Light Client Verification](https://btc-moonshot.github.io/spec/raw/spec/04-bitcoin-anchoring-and-light-client.md): Genesis BTC block `710,968`, `finalityDigest` anchoring, `proof-format.md` V1 SMT proofs, 30-day BLS12-381 `min-sig` `FinalityCommitteeRoot` (distinct IETF POP DSTs, depth-5 SHA-256 tree), historical-root full-preimage `SubmitInvalidCertProof`, U2 finality gadget, `72`-day post-committee-service stake lock, and anti-frontier boundary. HTML: https://btc-moonshot.github.io/spec/part-04/
-- [Part 5 — Detailed `go-zenon` Node Upgrade Plan](https://btc-moonshot.github.io/spec/raw/spec/05-go-zenon-upgrade-plan.md): Phases `U0`–`U5` verified against `go-zenon` `origin/release/0.0.11-rc1` (`f19955f`) and `origin/dev` (`770e893`), `GovernanceContract` + `MultisigContract` Stage 1B hard gate, `ChallengeDepositZnn` priority lane, and CI conformance gates. HTML: https://btc-moonshot.github.io/spec/part-05/
+- [Part 1 — Zero-Federation Bitcoin Taproot Vault Enforcement (`BTC-BITVMX-V1`), Stage 1B `clArk` Gate & Track B Annex](https://btc-moonshot.github.io/spec/raw/spec/01-bitcoin-taproot-vault-enforcement.md): Highest precedence. Explicit rejection of federated multisigs; Stage 0 zero-custody baseline; Stage 1A deleted-key `{0.50, 0.25, 0.25}` BTC vaults, `n = 8` `BitVMX-CPU` (`RV32IM`) bisection (`301` W-OTS digits ≈ `7.44 kvB <= 10,000 vB` 100% TRUC v3, `20` steps, `~75 kvB` Prover / `~15 kvB` Verifier, `F_chal = 0.40 BTC`), simultaneous `[0, 144]` challenge window, `T_take = 1,152` / `T_cooldown = 1,296` / `RetireStakeTx = 1,440`, 256-bit Lamport `TakeTx`, dual-input `Stake_r + VaultConnector_r` slashing (`0` BTC stolen, `0.15` L1 / `1.85` burn / `0.55` `B_zbtc` split giving `>= +0.0167 BTC` honest verifier EV), atomic `(2M+1)`-leaf `ExitSlotUTXO`, exact `12.8–18.8 BTC` capital & `~65–72d` 100% bank-run math; Stage 1B `clArk` gate; Stage 2 zero-TTP upgrade boundary & Track B soft-fork annex. HTML: https://btc-moonshot.github.io/spec/part-01/
+- [Master Overview (`SPEC.md`)](https://btc-moonshot.github.io/spec/raw/SPEC.md): Zero-federation phased architecture, Theorem 1 & Theorem 2 impossibility/capital bounds, end-to-end flows (Bob `0.5 BTC` under 49% Zenon attack & Mike `0.25 BTC` zero-signer exit), honest threat model, Stage 0/1A/1B/2 gates, `bigidea` claims alignment table, and written Q&A answering Consolidated Hostile Review `R7`. HTML: https://btc-moonshot.github.io/spec/
+- [Part 2 — Stage 0 Bitcoin SPV Event Oracle & Stage 1A L1 DA / Forced-Inclusion Inbox](https://btc-moonshot.github.io/spec/raw/spec/02-btc-authorization-domain-and-spv.md): Pure-Go panic-recovered (`B1`) Stage 0 SPV Event Oracle with 1- vs 2-block SHA-256 coinbase midstate proof (`len % 64 >= 56` fixed) and `B2` pinned `2.1M` Plasma floor; Stage 1A canonical Bitcoin L1 ordering, complete mutated-leaf DA (`0x02`), uncensorable L1 forced inbox (`0x00..0x07`), and halving-indexed TVL-scaled `K` (`0.50 * K * Subsidy(era) > Cap_TVL`). HTML: https://btc-moonshot.github.io/spec/part-02/
+- [Part 3 — Non-Custodial PTLC/LN Rails, Sovereign Rollup STF & Feeless Zenon Sequencer](https://btc-moonshot.github.io/spec/raw/spec/03-settlement-minted-zbtc-and-feeless-rails.md): Stage 0 hardened PTLC (`>= 72`-blk CSV, confirmed `<= h_conf+66`, `T_znn = 108,000s` = `30h` vs `2.3×` slow blocks) and LN HTLC (`hashType = 1`, `Δ_safety = 36` blks); Stage 1A immutable Rollup SMT (`Accounts`, `Vaults`, `PendingExits`, `OperatorState`, `B_zbtc = 0.60 BTC`/lane), feeless `AccountBlock.Data` sequencer (`~28,480` Plasma, `~14` refundable QSR, `0` sat BTC fee; `~8.8 tx/s` default / `~4.4 tx/s` floor / `~1,050–1,200 tx/s` real `8 MiB` ceiling), and Stage 1B `clArk` VTXO rails. HTML: https://btc-moonshot.github.io/spec/part-03/
+- [Part 4 — Zenon 49% Consensus Boundary, Inverted Trust Hierarchy & Light Clients](https://btc-moonshot.github.io/spec/raw/spec/04-bitcoin-anchoring-and-light-client.md): Code-grounded proof of why `go-zenon` DPoS fails at 49% (height-only grindable `findSeed`, unweighted top-30 `groupA`, zero slashing, 30-Momentum rollback cliff) and classical BFT fails at `> 33.3%`, proving why Stage 1A inverts trust to Bitcoin L1 (`0-of-N` Zenon trust); optional non-custodial light-client infrastructure. HTML: https://btc-moonshot.github.io/spec/part-04/
+- [Part 5 — Detailed `go-zenon` Upgrade Plan & Zero-Hard-Fork Custody Boundary](https://btc-moonshot.github.io/spec/raw/spec/05-go-zenon-upgrade-plan.md): Stage 0 `go-zenon` prerequisites (`0aa299e`, `#239` FIFO receive stall gate, `DynamicPlasmaSpork` + full `SetPlasmaVariables` pinning of `MaxBasePlasmaInMomentum >= 2.1M`, `MaxPriceChangePercent <= 25`, `FusedPlasmaTarget`, `PowPlasmaTarget`, `PriceChangeDenominator`, `PtlcSpork`, SPV Event Oracle) plus Stage 1A/1B zero-hard-fork custody isolation (`vk_STF` immutable on Bitcoin L1; `SporkAddress` cannot steal 1 satoshi). HTML: https://btc-moonshot.github.io/spec/part-05/
+- [Changelog (`v0 → v1`)](https://btc-moonshot.github.io/spec/raw/CHANGELOG.md): Complete finding-by-finding disposition of `R7` (`C-1..C-4`, `H-1..H-8`, `M-1..M-15`, `L-1..L-4`) explaining why `v0`'s BitVM2+PoS hybrid failed and why federated multisigs were rejected in favor of Stage 0 → Stage 1A `BitVMX` / Stage 1B `clArk`. HTML: https://btc-moonshot.github.io/spec/changelog/
 
-## Executable Verification & Adversarial Audit Trail
+## Consistency Checker & Review Trail
 
-- [Executable Bounds Oracle (`scripts/verify_spec_bounds.py`)](https://btc-moonshot.github.io/spec/raw/scripts/verify_spec_bounds.py): Run `python3 -I scripts/verify_spec_bounds.py` (stdlib Python 3 only, zero third-party deps) to independently verify every struct size, depth-256 ABI bound, per-block W-OTS weight, Leaf-3B stack bound, integer-satoshi payoff, 180-day multi-gen simulation, Poisson quantile, and halving-indexed `K`. HTML: https://btc-moonshot.github.io/spec/oracle/
-- [Verified Oracle Output](https://btc-moonshot.github.io/spec/raw/oracle-output.txt): Exact stdout from the current `v2.5.0-rfc` oracle run.
-- [Adversarial Review History (Rounds 1–6)](https://btc-moonshot.github.io/spec/reviews/): Full transparent history of 6 hostile peer-review rounds (converging from 12 CRITICAL / 12 HIGH in Round 1 down to 0 CRITICAL / 2 HIGH in Round 6, all resolved in `v2.5.0-rfc`).
-  - [Round 1](https://btc-moonshot.github.io/spec/raw/reviews/HOSTILE_REVIEW_R1.md)
-  - [Round 2](https://btc-moonshot.github.io/spec/raw/reviews/HOSTILE_REVIEW_R2.md)
-  - [Round 3](https://btc-moonshot.github.io/spec/raw/reviews/HOSTILE_REVIEW_R3.md)
-  - [Round 4](https://btc-moonshot.github.io/spec/raw/reviews/HOSTILE_REVIEW_R4.md)
-  - [Round 5](https://btc-moonshot.github.io/spec/raw/reviews/HOSTILE_REVIEW_R5.md)
-  - [Round 6](https://btc-moonshot.github.io/spec/raw/reviews/HOSTILE_REVIEW_R6.md)
-
----
-
-## Instructions for LLMs & Autonomous Review Agents
-
-You are explicitly invited to **adversarially audit this specification**, try to break its cryptographic, game-theoretic, consensus, or state-machine invariants, and submit structured GitHub Issues or Pull Requests to improve it.
-
-### 1. How to Ingest & Verify This Spec
-
-1. Fetch the entire normative corpus in one request via `https://btc-moonshot.github.io/spec/llms-full.txt`, or clone `https://github.com/btc-moonshot/spec`.
-2. Run the executable oracle locally (do NOT trust prose numbers without checking):
-   ```bash
-   python3 -I scripts/verify_spec_bounds.py
-   ```
-   Every modeled number in `SPEC.md` and `spec/01..05` MUST match the oracle's exact integer output.
-3. Respect the **non-blocking empirical gates** vs **design-spec defects** distinction:
-   - Unmeasured Signet BitVM2 / market constants prefixed `ASSUMED_STAGE_0C_TARGET_` in `scripts/verify_spec_bounds.py` are **already disclosed Stage 0C measurement gates (Gate G-2)**, not hidden assumptions.
-   - Tier 1A is explicitly **NOT trustless** — it discloses **5 explicit assumptions** (`SPEC.md §4`), including altruistic watcher capital (`-1.46 BTC` EV vs self-slasher/MEV) and `1-of-N` live `Q_graph` / Setup Committee honesty. Do not file issues claiming the spec hides these unless you found an *additional undisclosed* trust assumption or a bypass of one of the 5 stated bounds!
-   - Upstream amendments in `SPEC.md §6` (`A-SPEC-1..6`, `A-BTC-1`, `A-MINT-1`, `A-PILLAR-1`) are explicitly flagged as blocking mainnet registration.
-
-### 2. High-Value Adversarial Audit Checklist
-
-When reviewing `v2.5.0-rfc`, prioritize attacking:
-1. **Bitcoin Script & BitVM2 DAG (`spec/01`)**: Tapscript `OP_CLTV`/`OP_CSV`/sighash interactions, per-block `OP_HASH160` `w=4` W-OTS checksums & Leaf-3B SHA-256 stack limits (`<= 1,000` elements, `<= 400 kWU`), fee-bumping / 1p1c package relay / pinning vectors, operator self-slashing / griefing / bond-escape paths, staggered `46d < 56d < 58d` expiry races.
-2. **Finality Slashing & BLS12-381 (`spec/04`, `spec/05`)**: Historical-root `SubmitInvalidCertProof` edge cases, rogue-key / PoP DST separation, `FinalityCommitteeRoot` depth-5 SHA-256 Merkle tree, `72`-day post-committee-service Pillar lock vs `58d` bond expiry, inner STARK vs outer BN254 Groth16 circuit constraints.
-3. **SPV Domain & Cross-Store State Machine (`spec/02`, `spec/03`)**: Races or deadlocks between `d_btc_asset` (`TrackedVaultRecord`, `PegOutState`, `RecoveredVaultMap`) and `SettlementContract` (`VaultUtxoSet`, `PegOutRecord`, `OperatorLaneState`), SMT grinding past `12 KiB` vs Multi-Tx Witness Session bounds (`8,676 B` @ depth 256), `BTC_VAULT_SPEND_PROOF` inclusion/absence across `ACTIVE`/`RELEASED`/`QUARANTINED`, fronting slot expiry & anti-censorship (`500 ZNN` `SlotBondZnn`, `lastLapsedOperatorId`), and latency-aware `G-21` capacity across 30-day rotations.
-4. **`go-zenon` Ground Truth (`spec/05`)**: Verify any cited line or behavior against `https://github.com/zenon-network/go-zenon` (`origin/dev` `770e893` / `origin/release/0.0.11-rc1` `f19955f`), especially `TokenContract.IssueMinted -> ReceiveTreasury()`, `vm/vm.go`, `pillars.go`, `ptlc.go`, and `htlc.go`.
-5. **Peg-Free Rails (`spec/03 §5`)**: BIP-327 tweaked MuSig2 adaptor signature math, odd-`y(R')` parity handling, timelock ordering (`T_znn >= T_btc_worst + 6h`), and LN Hold Invoice `ACCEPTED`-first invariant.
-
-### 3. How to Submit a GitHub Issue (Adversarial Finding or Proposal)
-
-Open an issue at **https://github.com/btc-moonshot/spec/issues/new/choose** (or via GitHub CLI `gh issue create --repo btc-moonshot/spec`).
-
-Use this exact structure so maintainers and fellow reviewers can verify your finding rapidly:
-- **Title:** `[SEVERITY] Short concrete summary` (e.g., `[HIGH] Bypass in ...` or `[MEDIUM] Race between ...` or `[RFC] Proposal to adjust ...`)
-- **Severity:** `CRITICAL` (loss of funds / unbacked mint / permanent lock), `HIGH` (broken core security property or unbuildable mechanism), `MEDIUM` (edge-case liveness/griefing/honest-operator loss), `LOW` (erratum, numeric slip, missing detail), or `ORACLE` (bug in `scripts/verify_spec_bounds.py`).
-- **Exact Citations:** File path + section + line numbers (e.g., `spec/01-bitcoin-taproot-vault-enforcement.md §3.4`, `scripts/verify_spec_bounds.py:245`).
-- **Concrete Attack Trace or Reproduction:** Step-by-step trace with exact tx/call sequence, state transitions, or Python reproduction snippet showing the violated invariant.
-- **Minimal Proposed Fix:** Concrete normative diff or parameter change (and whether it changes any value in `scripts/verify_spec_bounds.py`).
-
-### 4. How to Submit a Pull Request to Adjust the Spec
-
-Open a PR against `main` at **https://github.com/btc-moonshot/spec/pulls**:
-1. Fork & branch from `main` (`git checkout -b fix/<short-slug>`).
-2. Edit the affected canonical files (`SPEC.md`, `spec/01..05`, and `scripts/verify_spec_bounds.py`). Keep ALL cross-file numbers, struct sizes, ABI limits, and threat-model disclosures 100% synchronized!
-3. Run the mandatory verification checks BEFORE opening your PR:
-   ```bash
-   python3 -I scripts/verify_spec_bounds.py
-   npm ci && npm run build
-   ```
-   GitHub Actions (`.github/workflows/verify-oracle.yml`) enforces both checks on every PR.
-4. Keep `public/raw/` and `public/llms-full.txt` synced by running `npm run sync:spec` (included in `package.json`) before committing so the static site, raw downloads, and LLM bundle never drift from the root Markdown files!
-5. In your PR description, link the Issue (if any), state the exact invariant changed, confirm oracle pass output, and disclose any new trust assumption or Stage 0C measurement target honestly.
+- [Consistency & Bounds Checker (`scripts/verify_spec_bounds.py`)](https://btc-moonshot.github.io/spec/raw/scripts/verify_spec_bounds.py): Run `python3 -I scripts/verify_spec_bounds.py` (stdlib Python 3 only) to verify Stage 0 coinbase midstate padding, honest `8 MiB` Plasma throughput, PTLC `2.3×` slow-block margins, Stage 1A `n = 8` BitVMX TRUC v3 weights, Lamport `TakeTx` stack/size, `k_collude = 0..6` positive-EV verifier matrix, `{0.50, 0.25, 0.25}` bank-run duration, halving-indexed TVL-scaled `K`, a non-no-op 2,000-step randomized state-machine & reorg simulation, and Stage 1B `clArk` bounds. HTML: https://btc-moonshot.github.io/spec/oracle/
+- [Consolidated Hostile Review (`R7` — Historical Audit of `v0`)](https://btc-moonshot.github.io/spec/raw/reviews/HOSTILE_REVIEW_R7_CONSOLIDATED.md)
+- [Adversarial Review Audit Trail (R1–R7)](https://btc-moonshot.github.io/spec/reviews/)
+- [Archived `v0` SHA-256 Manifest](https://btc-moonshot.github.io/spec/raw/v0/SHA256SUMS.txt)

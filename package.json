@@ -1,9 +1,9 @@
 {
   "name": "zbtc-spec",
   "type": "module",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "zBTC: Bitcoin-Zenon Interoperability Protocol Specification — public RFC, executable bounds oracle, and agent-ready review site.",
+  "description": "zBTC: Bitcoin-Zenon Interoperability Protocol Specification — zero-federation public RFC, consistency & bounds checker, and agent-ready review site.",
   "scripts": {
     "dev": "astro dev --host",
     "sync:spec": "node scripts/sync_public_artifacts.mjs",

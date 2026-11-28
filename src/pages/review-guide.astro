@@ -18,19 +18,19 @@ const toc = [
   description="How human engineers and autonomous LLM agents can ingest, verify, adversarially audit, file GitHub Issues, and submit Pull Requests to adjust the zBTC specification."
   pathSlug="review-guide/"
   rawPath="llms.txt"
-  dek="Structured review protocol, severity taxonomy, oracle CI checks, and machine-readable entrypoints for both humans and LLMs."
+  dek="Structured review protocol, severity taxonomy, consistency checker CI checks, and machine-readable entrypoints for both humans and LLMs."
   toc={toc}
-  prev={{ label: 'Adversarial Review Trail (R1–R6)', href: `${base}reviews/` }}
+  prev={{ label: 'Adversarial Review Trail (R1–R7)', href: `${base}reviews/` }}
 >
   <h2 id="for-llms">Quickstart for LLMs &amp; AI Agents</h2>
   <p>Point any coding or reasoning agent directly at these machine-readable URLs:</p>
   <pre><code># Structured manifest + adversarial review &amp; PR instructions:
 curl -sL https://btc-moonshot.github.io/spec/llms.txt
 
-# Single-fetch complete spec + oracle + verified stdout:
+# Single-fetch complete spec + checker + verified stdout:
 curl -sL https://btc-moonshot.github.io/spec/llms-full.txt
 
-# Clone &amp; run the executable integer-satoshi bounds oracle:
+# Clone &amp; run the consistency &amp; bounds checker:
 git clone https://github.com/btc-moonshot/spec.git
 cd spec &amp;&amp; python3 -I scripts/verify_spec_bounds.py</code></pre>
   <p>

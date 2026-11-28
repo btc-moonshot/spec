@@ -1,20 +1,24 @@
 ---
 import SpecShell from '../components/SpecShell.astro';
-import { renderSpecFile } from '../lib/spec';
+import { buildV1ToV0Diff, renderSpecFile } from '../lib/spec';
 
-const spec = renderSpecFile('spec/05-go-zenon-upgrade-plan.md');
+const rel = 'spec/05-go-zenon-upgrade-plan.md';
+const spec = renderSpecFile(rel, 'v1');
+const diffBundle = buildV1ToV0Diff(rel);
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <SpecShell
   activeKey="part-05"
+  version="v1"
   title={spec.title}
-  description="Part 5: Phased go-zenon node upgrade blueprint (U0–U5) verified against origin/dev 770e893 and release/0.0.11-rc1 f19955f, including TokenContract.IssueMinted, BLS12-381 finality slashing, and Governance decentralization."
+  description="Part 5: Stage 0 go-zenon prerequisites (0aa299e, #239 FIFO panic-stall closure, DynamicPlasmaSpork + full SetPlasmaVariables pinning, PtlcSpork, SPV oracle) and Stage 1A/1B zero-hard-fork custody isolation."
   pathSlug="part-05/"
-  rawPath="raw/spec/05-go-zenon-upgrade-plan.md"
+  rawPath={`raw/${rel}`}
   toc={spec.toc}
-  prev={{ label: 'Part 4: Bitcoin Anchoring & Light Client', href: `${base}part-04/` }}
-  next={{ label: 'Executable Bounds Oracle', href: `${base}oracle/` }}
+  diffBundle={diffBundle}
+  prev={{ label: 'Part 4: Zenon 49% Consensus Boundary, Inverted Trust Hierarchy & Light Clients', href: `${base}part-04/` }}
+  next={{ label: 'Consistency & Bounds Checker', href: `${base}oracle/` }}
 >
   <div class="spec-body" set:html={spec.html} />
 </SpecShell>
